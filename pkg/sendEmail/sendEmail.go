@@ -8,8 +8,7 @@ import (
 )
 
 func SendEmail(email, code string) (bool, error) {
-	emailPortStr := os.Getenv("EMAIL_PORT")
-	emailPort, _ := strconv.Atoi(emailPortStr)
+	emailPort, _ := strconv.Atoi(os.Getenv("EMAIL_PORT"))
 
 	m := gomail.NewMessage()
 	m.SetHeader("From", os.Getenv("EMAIL_ADDRESS"))
