@@ -1,0 +1,31 @@
+version: "3"
+
+services:
+  postgres:
+    container_name: postgres-servers
+    image: postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - postgre-net
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: sudiang123
+      POSTGRES_DB: deploy_db
+
+  deploy_docker:
+    depends_on:
+      - postgres
+    container_name: deploy-docker
+    image: deploy-docker
+    ports:
+      - "8080:8080"
+    networks:
+      - postgre-net
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: sudiang123
+      POSTGRES_PORT: 5432
+
+networks:
+  postgre-net:
