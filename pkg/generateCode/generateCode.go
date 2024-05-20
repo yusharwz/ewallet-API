@@ -1,8 +1,10 @@
 package generateCode
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"math/big"
 	"time"
 )
 
@@ -12,16 +14,17 @@ const (
 )
 
 func GenerateCode() string {
-	// Ambil timestamp saat ini
-	currentTime := time.Now()
-
-	// Format timestamp ke dalam format yang diinginkan: dd/mm/yyyy-hh-mm-ss
-	formattedTime := currentTime.Format(timeLayout)
-
-	// Encode timestamp yang diformat ke dalam base64
-	encodedTime := base64.StdEncoding.EncodeToString([]byte(formattedTime))
-
-	return encodedTime
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	length := 6
+	result := make([]byte, length)
+	for i := range result {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return ""
+		}
+		result[i] = charset[num.Int64()]
+	}
+	return string(result)
 }
 
 func ValidateCode(encodedTime string) bool {

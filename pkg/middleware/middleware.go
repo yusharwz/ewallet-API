@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"errors"
 	"final-project-enigma/model/dto"
 	"final-project-enigma/model/dto/json"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -129,4 +131,34 @@ func JwtAuthWithRoles(userId ...string) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func GetIdFromToken(authHeader string) (string, error) {
+	splitToken := strings.Split(authHeader, " ")
+	if len(splitToken) != 2 || splitToken[0] != "Bearer" {
+		fmt.Println(authHeader)
+		return "", errors.New("invalid authorization format")
+	}
+	tokenString := splitToken[1]
+
+	// Mendekode token JWT
+	token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Validasi algoritma yang digunakan
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		// Mengembalikan kunci rahasia yang sama yang digunakan untuk menandatangani token
+		return []byte("your_secret_key"), nil
+	})
+
+	// Mendapatkan ID dari klaim token JWT
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("failed to get claims")
+	}
+	id, ok := claims["id"].(string)
+	if !ok {
+		return "", errors.New("failed to get ID from token")
+	}
+	return id, nil
 }

@@ -12,7 +12,6 @@ type (
 		Code    string      `json:"responCode"`
 		Message string      `json:"responMessage,omitempty"`
 		Data    interface{} `json:"data,omitempty"`
-		Paging  interface{} `json:"paging,omitempty"`
 	}
 
 	jsonResponseWithPaging struct {
@@ -46,8 +45,8 @@ type (
 )
 
 func NewResponSuccesPaging(c *gin.Context, result interface{}, message, servisCode, responCode string, page, totalData int) {
-	c.JSON(http.StatusOK, jsonResponse{
-		Code:    "200" + responCode + servisCode,
+	c.JSON(http.StatusOK, jsonResponseWithPaging{
+		Code:    "200" + servisCode + responCode,
 		Message: message,
 		Data:    result,
 		Paging: PagingInfo{
