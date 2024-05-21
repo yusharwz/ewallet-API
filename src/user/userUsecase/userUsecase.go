@@ -180,16 +180,50 @@ func (usecase *userUC) GetTransactionUC(authHeader string, params userDto.GetTra
 	return resp, nil
 }
 
-func (usecase *userUC) TopUpTransaction(req userDto.TopUpTransactionRequest, authHeader string) (userDto.TopUpTransactionResponse, error) {
+func (usecase *userUC) TopUpTransaction(req userDto.TopUpTransactionRequest, authHeader string) (userDto.MidtransSnapResp, error) {
 	userId, err := middleware.GetIdFromToken(authHeader)
 	if err != nil {
-		return userDto.TopUpTransactionResponse{}, err
+		return userDto.MidtransSnapResp{}, err
 	}
 
 	req.UserId = userId
 	req.Description = "Balance Top Up"
 
-	return usecase.userRepo.CreateTopUpTransaction(req)
+	transactionId, err := usecase.userRepo.CreateTopUpTransaction(req)
+	if err != nil {
+		return userDto.MidtransSnapResp{}, err
+	}
+
+	methodName, err := usecase.userRepo.GetPaymentMethodName(req.PaymentMethodId)
+	if err != nil {
+		return userDto.MidtransSnapResp{}, err
+	}
+	userFullname, err := usecase.userRepo.GetUserFullname(req.UserId)
+	if err != nil {
+		return userDto.MidtransSnapResp{}, err
+	}
+	var request userDto.MidtransSnapReq
+	request.TransactionDetail.OrderID = transactionId
+	request.TransactionDetail.GrossAmt = req.Amount
+
+	request.PaymentType = methodName
+
+	request.Customer = userFullname
+
+	items := []userDto.Item{
+		{
+			ID:       "usertopup",
+			Name:     "TopUp Balance",
+			Price:    req.Amount,
+			Quantity: 1,
+		},
+	}
+
+	request.Items = items
+
+	resp, err := usecase.userRepo.PaymentGateway(request)
+
+	return resp, err
 }
 
 func (usecase *userUC) WalletTransaction(req userDto.WalletTransactionRequest, authHeader string) (userDto.WalletTransactionResponse, error) {

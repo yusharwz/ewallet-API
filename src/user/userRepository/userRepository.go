@@ -2,19 +2,28 @@ package userRepository
 
 import (
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"final-project-enigma/model/dto/userDto"
 	"final-project-enigma/src/user"
 	"fmt"
+	"os"
 	"time"
+
+	"github.com/go-resty/resty/v2"
 )
 
 type userRepository struct {
-	db *sql.DB
+	db     *sql.DB
+	client *resty.Client
 }
 
-func NewUserRepository(db *sql.DB) user.UserRepository {
-	return &userRepository{db}
+func NewUserRepository(db *sql.DB, client *resty.Client) user.UserRepository {
+	return &userRepository{
+		db:     db,
+		client: client,
+	}
 }
 
 func (repo *userRepository) CekEmail(email string) (bool, error) {
@@ -234,10 +243,30 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 	return resp, nil
 }
 
-func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionRequest) (userDto.TopUpTransactionResponse, error) {
+func (repo *userRepository) GetPaymentMethodName(id string) (metdhodName string, err error) {
+
+	query := "SELECT payment_name FROM payment_method WHERE id = $1;"
+	if err := repo.db.QueryRow(query, id).Scan(&metdhodName); err != nil {
+		return "", errors.New("fail to get payment method name")
+	}
+
+	return metdhodName, nil
+}
+
+func (repo *userRepository) GetUserFullname(id string) (userFullname string, err error) {
+
+	query := "SELECT fullname FROM users WHERE id = $1;"
+	if err := repo.db.QueryRow(query, id).Scan(&userFullname); err != nil {
+		return "", errors.New("fail to get user fullname")
+	}
+
+	return userFullname, nil
+}
+
+func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionRequest) (string, error) {
 	tx, err := repo.db.Begin()
 	if err != nil {
-		return userDto.TopUpTransactionResponse{}, err
+		return "", err
 	}
 
 	// Check if payment_method_id is valid
@@ -252,7 +281,7 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 	err = tx.QueryRow(checkPaymentMethodQuery, req.PaymentMethodId).Scan(&validPaymentMethod)
 	if err != nil {
 		tx.Rollback()
-		return userDto.TopUpTransactionResponse{}, err
+		return "", err
 	}
 
 	// Insert into transactions table without specifying the id
@@ -265,7 +294,7 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 	err = tx.QueryRow(transactionQuery, req.UserId, req.Amount, req.Description, time.Now()).Scan(&transactionID)
 	if err != nil {
 		tx.Rollback()
-		return userDto.TopUpTransactionResponse{}, err
+		return "", err
 	}
 
 	// Insert into topup_transactions table without specifying the id
@@ -276,15 +305,40 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 	_, err = tx.Exec(topupTransactionQuery, transactionID, req.PaymentMethodId, time.Now())
 	if err != nil {
 		tx.Rollback()
-		return userDto.TopUpTransactionResponse{}, err
+		return "", err
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return userDto.TopUpTransactionResponse{}, err
+		return "", err
 	}
 
-	return userDto.TopUpTransactionResponse{TransactionId: transactionID}, nil
+	return transactionID, nil
+}
+
+func (repo *userRepository) PaymentGateway(payload userDto.MidtransSnapReq) (userDto.MidtransSnapResp, error) {
+	url := "https://app.sandbox.midtrans.com/snap/v1/transactions"
+	serverKey := os.Getenv("SERVER_KEY")
+	encodeKey := base64.StdEncoding.EncodeToString([]byte(serverKey))
+
+	resp, err := repo.client.R().SetHeader("Authorization", "Basic "+encodeKey).SetBody(payload).Post(url)
+
+	if err != nil {
+		fmt.Println("Error payment: ", err.Error())
+		return userDto.MidtransSnapResp{}, err
+	}
+
+	var snapResp userDto.MidtransSnapResp
+	err = json.Unmarshal(resp.Body(), &snapResp)
+	if err != nil {
+		fmt.Println("Error encode json: ", err.Error())
+		return userDto.MidtransSnapResp{}, err
+	}
+
+	redirectUrl := fmt.Sprintf("https://app.sandbox.midtrans.com/snap/v2/vtweb/%s", snapResp.Token)
+	snapResp.RedirectUrl = redirectUrl
+
+	return snapResp, nil
 }
 
 func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactionRequest) (userDto.WalletTransactionResponse, error) {
@@ -293,6 +347,29 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 		return userDto.WalletTransactionResponse{}, err
 	}
 
+	// Check if the sender's wallet has sufficient balance
+	var senderBalance float64
+	balanceQuery := `SELECT balance FROM wallets WHERE id = $1`
+	err = tx.QueryRow(balanceQuery, req.FromWalletId).Scan(&senderBalance)
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, err
+	}
+
+	if senderBalance < req.Amount {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, errors.New("insufficient balance")
+	}
+
+	// Check if recipient wallet exists
+	var recipientBalance float64
+	err = tx.QueryRow(balanceQuery, req.ToWalletId).Scan(&recipientBalance)
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, errors.New("recipient wallet not found")
+	}
+
+	// Insert into transactions table
 	transactionQuery := `
 		INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
 		VALUES ($1, 'debit', $2, $3, $4, 'pending')
@@ -305,12 +382,47 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 		return userDto.WalletTransactionResponse{}, err
 	}
 
-	// Insert into wallet_transactions table without specifying the id
+	// Insert into wallet_transactions table
 	walletTransactionQuery := `
 		INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
 		VALUES ($1, $2, $3, $4)
 	`
 	_, err = tx.Exec(walletTransactionQuery, transactionID, req.FromWalletId, req.ToWalletId, time.Now())
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, err
+	}
+
+	// Update sender's wallet balance and ensure it does not go below zero
+	updateSenderBalanceQuery := `
+		UPDATE wallets
+		SET balance = balance - $1
+		WHERE id = $2 AND balance >= $1
+	`
+	res, err := tx.Exec(updateSenderBalanceQuery, req.Amount, req.FromWalletId)
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, err
+	}
+
+	if rowsAffected < 1 {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, errors.New("insufficient balance after check")
+	}
+
+	// Update recipient's wallet balance
+	updateRecipientBalanceQuery := `
+		UPDATE wallets
+		SET balance = balance + $1
+		WHERE id = $2
+	`
+	_, err = tx.Exec(updateRecipientBalanceQuery, req.Amount, req.ToWalletId)
 	if err != nil {
 		tx.Rollback()
 		return userDto.WalletTransactionResponse{}, err

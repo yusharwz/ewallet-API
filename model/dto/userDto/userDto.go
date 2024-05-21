@@ -96,4 +96,27 @@ type (
 	WalletTransactionResponse struct {
 		TransactionId string `json:"transactionId"`
 	}
+
+	MidtransSnapReq struct {
+		TransactionDetail struct {
+			OrderID  string  `json:"order_id"`
+			GrossAmt float64 `json:"gross_amount"`
+		} `json:"transaction_details"`
+		PaymentType string `json:"payment_type"`
+		Customer    string `json:"customer"`
+		Items       []Item `json:"item_details"`
+	}
+
+	Item struct {
+		ID       string  `json:"id"`
+		Name     string  `json:"name"`
+		Price    float64 `json:"price"`
+		Quantity int     `json:"quantity"`
+	}
+
+	MidtransSnapResp struct {
+		Token        string   `json:"token"`
+		RedirectUrl  string   `json:"redirect_url"`
+		ErrorMessage []string `json:"error_messages"`
+	}
 )
