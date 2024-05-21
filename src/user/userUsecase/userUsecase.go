@@ -126,6 +126,11 @@ func (usecase *userUC) CreateReq(req userDto.UserCreateRequest) (resp userDto.Us
 		return resp, err
 	}
 
+	err = usecase.userRepo.UserWalletCreate(resp.Id)
+	if err != nil {
+		return resp, err
+	}
+
 	return resp, nil
 }
 
@@ -167,36 +172,35 @@ func (usecase *userUC) GetTransactionUC(authHeader string, params userDto.GetTra
 
 	params.UserId = userId
 
-	transactions, err := usecase.userRepo.GetTransactionRepo(params)
+	resp, err := usecase.userRepo.GetTransactionRepo(params)
 	if err != nil {
 		return nil, err
 	}
 
-	var resp []userDto.GetTransactionResponse
-	for _, transaction := range transactions {
-		trxType := "debit"
-		if transaction.PaymentMethod.Valid && transaction.PaymentMethod.String != "" {
-			trxType = "credit"
-		} else if transaction.RecipientUserId.Valid && transaction.RecipientUserId.String == userId {
-			trxType = "credit"
-		}
+	return resp, nil
+}
 
-		if params.TrxType != "" && trxType != params.TrxType {
-			continue
-		}
-
-		resp = append(resp, userDto.GetTransactionResponse{
-			TransactionId:   transaction.TransactionId,
-			PaymentMethod:   transaction.PaymentMethod.String,
-			TransactionType: trxType,
-			Amount:          transaction.Amount,
-			Description:     transaction.Description,
-			TransactionDate: transaction.TransactionDate,
-			PaymentStatus:   transaction.PaymentStatus,
-			SenderName:      transaction.SenderName.String,
-			RecipientName:   transaction.RecipientName.String,
-		})
+func (usecase *userUC) TopUpTransaction(req userDto.TopUpTransactionRequest, authHeader string) (userDto.TopUpTransactionResponse, error) {
+	userId, err := middleware.GetIdFromToken(authHeader)
+	if err != nil {
+		return userDto.TopUpTransactionResponse{}, err
 	}
 
-	return resp, nil
+	req.UserId = userId
+	req.Description = "Balance Top Up"
+
+	return usecase.userRepo.CreateTopUpTransaction(req)
+}
+
+func (usecase *userUC) WalletTransaction(req userDto.WalletTransactionRequest, authHeader string) (userDto.WalletTransactionResponse, error) {
+	fromId, err := middleware.GetIdFromToken(authHeader)
+	if err != nil {
+		return userDto.WalletTransactionResponse{}, err
+	}
+
+	req.UserId = fromId
+	req.FromWalletId = fromId
+	req.Description = "Balance Top Up"
+
+	return usecase.userRepo.CreateWalletTransaction(req)
 }

@@ -1,7 +1,5 @@
 package userDto
 
-import "database/sql"
-
 type (
 	UserLoginCodeRequestEmail struct {
 		Email string `json:"email" binding:"required,email"`
@@ -60,28 +58,42 @@ type (
 		Limit           string
 	}
 
-	TransactionRecord struct {
-		TransactionId   string
-		PaymentMethod   sql.NullString
-		UserId          sql.NullString
-		RecipientUserId sql.NullString
-		Amount          string
-		Description     string
-		TransactionDate string
-		PaymentStatus   string
-		SenderName      sql.NullString
-		RecipientName   sql.NullString
+	GetTransactionResponse struct {
+		TransactionId   string            `json:"transactionId,omitempty"`
+		TransactionType string            `json:"transactionType,omitempty"`
+		Amount          string            `json:"amount,omitempty"`
+		Description     string            `json:"description"`
+		TransactionDate string            `json:"transactionDate"`
+		Status          string            `json:"status"`
+		Detail          TransactionDetail `json:"detail"`
 	}
 
-	GetTransactionResponse struct {
-		TransactionId   string `json:"transactionId,omitempty"`
-		PaymentMethod   string `json:"paymentMethod,omitempty"`
-		TransactionType string `json:"transactionType,omitempty"`
-		RecipientName   string `json:"recipientName,omitempty"`
-		SenderName      string `json:"senderName,omitempty"`
-		Amount          string `json:"amount,omitempty"`
-		Description     string `json:"description"`
-		TransactionDate string `json:"transactionDate"`
-		PaymentStatus   string `json:"paymentStatus"`
+	TransactionDetail struct {
+		SenderName    string `json:"senderName,omitempty"`
+		RecipientName string `json:"recipientName,omitempty"`
+		PaymentMethod string `json:"paymentMethod,omitempty"`
+	}
+
+	TopUpTransactionRequest struct {
+		UserId          string  `json:"userId"`
+		Amount          float64 `json:"amount"`
+		Description     string  `json:"description"`
+		PaymentMethodId string  `json:"paymentMethodId"`
+	}
+
+	TopUpTransactionResponse struct {
+		TransactionId string `json:"transactionId"`
+	}
+
+	WalletTransactionRequest struct {
+		UserId       string  `json:"userId"`
+		FromWalletId string  `json:"fromWalletId"`
+		ToWalletId   string  `json:"toWalletId"`
+		Amount       float64 `json:"amount"`
+		Description  string  `json:"description"`
+	}
+
+	WalletTransactionResponse struct {
+		TransactionId string `json:"transactionId"`
 	}
 )

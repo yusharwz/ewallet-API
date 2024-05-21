@@ -22,13 +22,14 @@ func NewUserDelivery(v1Group *gin.RouterGroup, userUC user.UserUsecase) {
 	userGroup := v1Group.Group("/users")
 
 	{
-		userGroup.POST("/register", middleware.BasicAuth, handler.createUserReuqest)
+		userGroup.POST("/register", middleware.BasicAuth, handler.createUserRequest)
 		userGroup.POST("/reqcode/email", middleware.BasicAuth, handler.loginUserCodeReuqestEmail)
 		userGroup.POST("/reqcode/whatsapp", middleware.BasicAuth, handler.loginUserCodeReuqestSMS)
 		userGroup.POST("/login", middleware.BasicAuth, handler.loginUserReuqest)
 		userGroup.GET("/info", middleware.JWTAuth(), handler.getDataUser)
 		userGroup.GET("/info/balance", middleware.JWTAuth(), handler.getBalanceInfo)
 		userGroup.GET("/info/transactions", middleware.JWTAuth(), handler.getTransactionsDetail)
+		userGroup.POST("/info/balance/topup", middleware.JWTAuth(), handler.topupTransactionRequest)
 	}
 }
 
@@ -96,7 +97,7 @@ func (u *userDelivery) loginUserReuqest(ctx *gin.Context) {
 	json.NewResponSucces(ctx, token, "login succes", "01", "01")
 }
 
-func (u *userDelivery) createUserReuqest(ctx *gin.Context) {
+func (u *userDelivery) createUserRequest(ctx *gin.Context) {
 	var req userDto.UserCreateRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		validationError := validation.GetValidationError(err)
@@ -162,4 +163,26 @@ func (u *userDelivery) getTransactionsDetail(ctx *gin.Context) {
 
 	json.NewResponSucces(ctx, resp, "Succes get transaction data", "01", "01")
 
+}
+
+func (u *userDelivery) topupTransactionRequest(ctx *gin.Context) {
+	authHeader := ctx.GetHeader("Authorization")
+	var req userDto.TopUpTransactionRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+		json.NewResponseError(ctx, "json request body required", "01", "02")
+		return
+	}
+
+	resp, err := u.userUC.TopUpTransaction(req, authHeader)
+	if err != nil {
+		json.NewResponseError(ctx, err.Error(), "01", "01")
+		return
+	}
+	json.NewResponSucces(ctx, resp, "create transaction succes", "01", "01")
 }

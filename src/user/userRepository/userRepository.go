@@ -6,7 +6,6 @@ import (
 	"final-project-enigma/model/dto/userDto"
 	"final-project-enigma/src/user"
 	"fmt"
-	"strconv"
 	"time"
 )
 
@@ -101,6 +100,17 @@ func (repo *userRepository) UserCreate(req userDto.UserCreateRequest) (resp user
 	return resp, nil
 }
 
+func (repo *userRepository) UserWalletCreate(id string) (err error) {
+	query := "INSERT INTO wallets (user_id) VALUES ($1)"
+
+	if _, err := repo.db.Exec(query, id); err != nil {
+		fmt.Println(err)
+		return errors.New("fail to create wallet")
+	}
+
+	return nil
+}
+
 func (repo *userRepository) GetDataUserRepo(id string) (resp userDto.UserGetDataResponse, err error) {
 
 	query := "SELECT fullname, username, email, phone_number FROM users WHERE id = $1;"
@@ -113,7 +123,7 @@ func (repo *userRepository) GetDataUserRepo(id string) (resp userDto.UserGetData
 
 func (repo *userRepository) GetBalanceInfoRepo(id string) (resp userDto.UserGetDataResponse, err error) {
 
-	query := "SELECT balance FROM users WHERE id = $1;"
+	query := "SELECT balance FROM wallets WHERE user_id = $1;"
 	if err := repo.db.QueryRow(query, id).Scan(&resp.Balance); err != nil {
 		return resp, errors.New("fail to get data db")
 	}
@@ -123,97 +133,193 @@ func (repo *userRepository) GetBalanceInfoRepo(id string) (resp userDto.UserGetD
 	return resp, nil
 }
 
-func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionParams) ([]userDto.TransactionRecord, error) {
+func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionParams) ([]userDto.GetTransactionResponse, error) {
+	// Query utama untuk transaksi pengguna
 	query := `
       SELECT
-            t.id AS transaction_id,
-            pm.payment_name,
-            t.user_id,
-            t.recipient_user_id,
+            t.id,
+            t.transaction_type,
             t.amount,
             t.description,
-            t.transaction_date,
-            t.status,
-            u1.fullname AS sender_name,
-            u2.fullname AS recipient_name
+            t.created_at,
+            t.status
       FROM
-            transaction t
-      LEFT JOIN
-            payment_method pm ON t.payment_method_id = pm.id
-      LEFT JOIN
-            users u1 ON t.user_id = u1.id
-      LEFT JOIN
-            users u2 ON t.recipient_user_id = u2.id
+            transactions t
       WHERE
-            (t.user_id = $1 OR t.recipient_user_id = $1)
+            t.user_id = $1
+      UNION
+      SELECT
+            t.id,
+            t.transaction_type,
+            t.amount,
+            t.description,
+            t.created_at,
+            t.status
+      FROM
+            transactions t
+      JOIN
+            wallet_transactions wt ON t.id = wt.transaction_id
+      JOIN
+            wallets w ON wt.from_wallet_id = w.id OR wt.to_wallet_id = w.id
+      WHERE
+            w.user_id = $1
    `
 
-	var args []interface{}
-	args = append(args, params.UserId)
-
-	if params.TrxId != "" {
-		query += " AND t.id = $" + strconv.Itoa(len(args)+1)
-		args = append(args, params.TrxId)
-	}
-
-	if params.TrxType != "" {
-		if params.TrxType == "credit" {
-			query += " AND (pm.payment_name IS NOT NULL OR t.recipient_user_id = $1)"
-		} else if params.TrxType == "debit" {
-			query += " AND t.user_id = $1 AND pm.payment_name IS NULL"
-		}
-	}
-
-	if params.TrxDateStart != "" {
-		query += " AND t.transaction_date >= $" + strconv.Itoa(len(args)+1)
-		args = append(args, params.TrxDateStart)
-	}
-
-	if params.TrxDateEnd != "" {
-		query += " AND t.transaction_date <= $" + strconv.Itoa(len(args)+1)
-		args = append(args, params.TrxDateEnd)
-	}
-
-	if params.TrxStatus != "" {
-		query += " AND t.status = $" + strconv.Itoa(len(args)+1)
-		args = append(args, params.TrxStatus)
-	}
-
-	rows, err := repo.db.Query(query, args...)
+	rows, err := repo.db.Query(query, params.UserId)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get data from db: %w", err)
 	}
 	defer rows.Close()
 
-	var transactions []userDto.TransactionRecord
-	for rows.Next() {
-		var transaction userDto.TransactionRecord
+	var resp []userDto.GetTransactionResponse
 
-		if err := rows.Scan(
-			&transaction.TransactionId,
-			&transaction.PaymentMethod,
-			&transaction.UserId,
-			&transaction.RecipientUserId,
-			&transaction.Amount,
-			&transaction.Description,
-			&transaction.TransactionDate,
-			&transaction.PaymentStatus,
-			&transaction.SenderName,
-			&transaction.RecipientName,
-		); err != nil {
-			return nil, err
+	for rows.Next() {
+		var transaction userDto.GetTransactionResponse
+		if err := rows.Scan(&transaction.TransactionId, &transaction.TransactionType, &transaction.Amount, &transaction.Description, &transaction.TransactionDate, &transaction.Status); err != nil {
+			return nil, fmt.Errorf("failed to scan transaction data: %w", err)
 		}
 
-		transactions = append(transactions, transaction)
+		// Default empty detail
+		transaction.Detail = userDto.TransactionDetail{}
+
+		// Query untuk mendapatkan payment_method_id dari topup_transactions
+		paymentMethodQuery := `
+            SELECT
+               pm.payment_name
+            FROM
+               topup_transactions tt
+            JOIN
+               payment_method pm ON tt.payment_method_id = pm.id
+            WHERE
+               tt.transaction_id = $1
+      `
+		var paymentMethod sql.NullString
+		err = repo.db.QueryRow(paymentMethodQuery, transaction.TransactionId).Scan(&paymentMethod)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, fmt.Errorf("failed to query topup transaction: %w", err)
+		}
+		if paymentMethod.Valid {
+			transaction.Detail.PaymentMethod = paymentMethod.String
+		}
+
+		// Query untuk mendapatkan SenderName dan RecipientName dari wallet_transactions
+		walletTransactionQuery := `
+            SELECT
+                (SELECT u.username FROM users u JOIN wallets wf ON u.id = wf.user_id WHERE wf.id = wt.from_wallet_id) AS sender_name,
+                (SELECT u.username FROM users u JOIN wallets wr ON u.id = wr.user_id WHERE wr.id = wt.to_wallet_id) AS recipient_name
+            FROM
+                wallet_transactions wt
+            WHERE
+                wt.transaction_id = $1
+        `
+		var senderName, recipientName sql.NullString
+		err = repo.db.QueryRow(walletTransactionQuery, transaction.TransactionId).Scan(&senderName, &recipientName)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, fmt.Errorf("failed to query wallet transaction: %w", err)
+		}
+		if senderName.Valid {
+			transaction.Detail.SenderName = senderName.String
+		}
+		if recipientName.Valid {
+			transaction.Detail.RecipientName = recipientName.String
+		}
+
+		resp = append(resp, transaction)
 	}
 
-	if err = rows.Err(); err != nil {
-		return nil, err
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate over transaction rows: %w", err)
 	}
 
-	if len(transactions) == 0 {
-		return nil, errors.New("no transactions found for the given user ID or recipient user ID")
+	return resp, nil
+}
+
+func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionRequest) (userDto.TopUpTransactionResponse, error) {
+	tx, err := repo.db.Begin()
+	if err != nil {
+		return userDto.TopUpTransactionResponse{}, err
 	}
 
-	return transactions, nil
+	// Check if payment_method_id is valid
+	var validPaymentMethod bool
+	checkPaymentMethodQuery := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM payment_method
+			WHERE id = $1
+		)
+	`
+	err = tx.QueryRow(checkPaymentMethodQuery, req.PaymentMethodId).Scan(&validPaymentMethod)
+	if err != nil {
+		tx.Rollback()
+		return userDto.TopUpTransactionResponse{}, err
+	}
+
+	// Insert into transactions table without specifying the id
+	transactionQuery := `
+		INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
+		VALUES ($1, 'credit', $2, $3, $4, 'pending')
+		RETURNING id
+	`
+	var transactionID string
+	err = tx.QueryRow(transactionQuery, req.UserId, req.Amount, req.Description, time.Now()).Scan(&transactionID)
+	if err != nil {
+		tx.Rollback()
+		return userDto.TopUpTransactionResponse{}, err
+	}
+
+	// Insert into topup_transactions table without specifying the id
+	topupTransactionQuery := `
+		INSERT INTO topup_transactions (transaction_id, payment_method_id, created_at)
+		VALUES ($1, $2, $3)
+	`
+	_, err = tx.Exec(topupTransactionQuery, transactionID, req.PaymentMethodId, time.Now())
+	if err != nil {
+		tx.Rollback()
+		return userDto.TopUpTransactionResponse{}, err
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return userDto.TopUpTransactionResponse{}, err
+	}
+
+	return userDto.TopUpTransactionResponse{TransactionId: transactionID}, nil
+}
+
+func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactionRequest) (userDto.WalletTransactionResponse, error) {
+	tx, err := repo.db.Begin()
+	if err != nil {
+		return userDto.WalletTransactionResponse{}, err
+	}
+
+	transactionQuery := `
+		INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
+		VALUES ($1, 'debit', $2, $3, $4, 'pending')
+		RETURNING id
+	`
+	var transactionID string
+	err = tx.QueryRow(transactionQuery, req.UserId, req.Amount, req.Description, time.Now()).Scan(&transactionID)
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, err
+	}
+
+	// Insert into wallet_transactions table without specifying the id
+	walletTransactionQuery := `
+		INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err = tx.Exec(walletTransactionQuery, transactionID, req.FromWalletId, req.ToWalletId, time.Now())
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, err
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return userDto.WalletTransactionResponse{}, err
+	}
+
+	return userDto.WalletTransactionResponse{TransactionId: transactionID}, nil
 }
