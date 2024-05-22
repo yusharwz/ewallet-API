@@ -21,9 +21,22 @@ type (
 		PhoneNumber string    `json:"phoneNumber"`
 		CreatedAt   time.Time `json:"createdAt"`
 		UpdatedAt   time.Time `json:"updatedAt"`
-		DeletedAt   time.Time `json:"deletedAt"`
 	}
-
+	UserCreateRequest struct {
+		Fullname    string `json:"fullname" binding:"required"`
+		Username    string `json:"username" binding:"required"`
+		Email       string `json:"email" binding:"required,email"`
+		Pin         string `json:"pin" binding:"required,password"`
+		PhoneNumber string `json:"phone_number" binding:"required,nomorHp"`
+	}
+	UserUpdateRequest struct {
+		ID          string `json:"id"`
+		Fullname    string `json:"fullname" binding:"required"`
+		Username    string `json:"username" binding:"required"`
+		Email       string `json:"email" binding:"required,email"`
+		Pin         string `json:"pin" binding:"required,password"`
+		PhoneNumber string `json:"phone_number" binding:"required,nomorHp"`
+	}
 	GetpaymentMethodParams struct {
 		ID          string `json:"id"`
 		PaymentName string `json:"payment_name"`
@@ -36,7 +49,6 @@ type (
 		PaymentName string    `json:"payment_name"`
 		CreatedAt   time.Time `json:"createdAt"`
 		UpdatedAt   time.Time `json:"updatedAt"`
-		DeletedAt   time.Time `json:"deletedAt"`
 	}
 
 	GetWalletParams struct {
@@ -54,5 +66,19 @@ type (
 		Balance   string    `json:"balance"`
 		CreatedAt time.Time `json:"createdAt"`
 		UpdatedAt time.Time `json:"updatedAt"`
+	}
+
+	CreatePaymentMethod struct {
+		PaymentName string `json:"payment_name" binding:"required,max=255"`
+	}
+
+	UpdatePaymentRequest struct {
+		ID          string `json:"id"`
+		PaymentName string `json:"payment_name" binding:"required,max=255"`
+	}
+
+	PaymentResponse struct {
+		ID          string `json:"id"`
+		PaymentName string `json:"payment_name" binding:"required,max=255"`
 	}
 )
