@@ -3,6 +3,7 @@ package adminDelivery
 import (
 	"final-project-enigma/model/dto/adminDto"
 	"final-project-enigma/model/dto/json"
+	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/pkg/validation"
 	"final-project-enigma/src/admin"
 	"strconv"
@@ -182,6 +183,8 @@ func NewAdminDelivery(router *gin.RouterGroup, adminUsecase admin.AdminUsecase) 
 
 	adminGroup := router.Group("/admin")
 	{
+		adminGroup.Use(middleware.BasicAuth)
+
 		adminGroup.GET("/users", handler.GetUsersByParams)
 		adminGroup.POST("/user", handler.SaveUser)
 		adminGroup.DELETE("/user/:id", handler.SoftDeleteUser)
