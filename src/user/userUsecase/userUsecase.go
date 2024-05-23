@@ -3,12 +3,12 @@ package userUsecase
 import (
 	"errors"
 	"final-project-enigma/model/dto/userDto"
-	"final-project-enigma/pkg/generateCode"
-	"final-project-enigma/pkg/getJwtToken"
-	"final-project-enigma/pkg/hashingPassword"
+	"final-project-enigma/pkg/helper/generateCode"
+	"final-project-enigma/pkg/helper/getJwtToken"
+	"final-project-enigma/pkg/helper/hashingPassword"
+	"final-project-enigma/pkg/helper/sendEmail"
+	"final-project-enigma/pkg/helper/sendWhatappTwilio"
 	"final-project-enigma/pkg/middleware"
-	"final-project-enigma/pkg/sendEmail"
-	"final-project-enigma/pkg/sendWhatappTwilio"
 	"final-project-enigma/src/user"
 	"strconv"
 )

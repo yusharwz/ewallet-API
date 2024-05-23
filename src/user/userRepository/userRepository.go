@@ -150,7 +150,7 @@ func (repo *userRepository) UserCreate(req userDto.UserCreateRequest) (resp user
 		return resp, "", errors.New("email is already in use")
 	}
 
-	checkUsernameQuery := "SELECT COUNT(*) FROM users WHERE email = $1"
+	checkUsernameQuery := "SELECT COUNT(*) FROM users WHERE username = $1"
 	var usernameCount int
 	if err := repo.db.QueryRow(checkUsernameQuery, req.Username).Scan(&usernameCount); err != nil {
 		return resp, "", errors.New("failed to check username")
