@@ -27,7 +27,7 @@ func SendEmail(email, code string) (bool, error) {
 
 func SendEmailActivedAccount(email, fullname, code, unique string) error {
 
-	url := fmt.Sprintf("http://localhost:8080/api/v1/auth/activate-account?email=%s&fullname=%s&unique=%s&code=%s", email, fullname, unique, code)
+	url := fmt.Sprintf("https://api.yusharwz.my.id/api/v1/auth/activate-account?email=%s&fullname=%s&unique=%s&code=%s", email, fullname, unique, code)
 
 	emailPort, _ := strconv.Atoi(os.Getenv("EMAIL_PORT"))
 

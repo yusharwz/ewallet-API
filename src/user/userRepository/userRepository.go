@@ -185,7 +185,7 @@ func (repo *userRepository) ActivedAccount(req userDto.ActivatedAccountReq) (err
 	var expiredCode time.Time
 	checkCodeExpired := "SELECT expired_code  FROM users WHERE email = $1 AND username = $2 AND pin = $3 AND verification_code = $4"
 	if err := repo.db.QueryRow(checkCodeExpired, req.Email, req.Fullname, req.Unique, req.Code).Scan(&expiredCode); err != nil {
-		return errors.New("failed to get expired code")
+		return errors.New("link activation has expired")
 	}
 	currentTime := time.Now().UTC().Add(7 * time.Hour)
 	expiredTimestamp := expiredCode.Unix()
@@ -200,7 +200,7 @@ func (repo *userRepository) ActivedAccount(req userDto.ActivatedAccountReq) (err
 		WHERE email = $1 AND username = $2 AND pin = $3 AND verification_code = $4
 	`
 	if _, err := repo.db.Exec(queryUpdate, req.Email, req.Fullname, req.Unique, req.Code); err != nil {
-		return err
+		return errors.New("failed to activated your account")
 	}
 
 	return nil
