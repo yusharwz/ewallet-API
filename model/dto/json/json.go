@@ -39,12 +39,12 @@ type (
 	}
 
 	PagingInfo struct {
-		Page      int `json:"page,omitempty"`
-		TotalData int `json:"totalData,omitempty"`
+		Page      string `json:"page,omitempty"`
+		TotalData string `json:"totalData,omitempty"`
 	}
 )
 
-func NewResponSuccesPaging(c *gin.Context, result interface{}, message, servisCode, responCode string, page, totalData int) {
+func NewResponSuccesPaging(c *gin.Context, result interface{}, message, servisCode, responCode string, page, totalData string) {
 	c.JSON(http.StatusOK, jsonResponseWithPaging{
 		Code:    "200" + servisCode + responCode,
 		Message: message,
@@ -61,15 +61,6 @@ func NewResponSucces(c *gin.Context, result interface{}, message, servisCode, re
 		Code:    "200" + servisCode + responCode,
 		Message: message,
 		Data:    result,
-	})
-}
-
-func NewResponSuccesWithPaging(c *gin.Context, result interface{}, paging interface{}, message, servisCode, responCode string) {
-	c.JSON(http.StatusOK, jsonResponseWithPaging{
-		Code:    "200" + servisCode + responCode,
-		Message: message,
-		Data:    result,
-		Paging:  paging,
 	})
 }
 

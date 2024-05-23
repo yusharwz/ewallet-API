@@ -1,6 +1,7 @@
 package userRepository
 
 import (
+	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -9,8 +10,11 @@ import (
 	"final-project-enigma/src/user"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
+	"github.com/cloudinary/cloudinary-go/v2"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -27,28 +31,42 @@ func NewUserRepository(db *sql.DB, client *resty.Client) user.UserRepository {
 }
 
 func (repo *userRepository) CekEmail(email string) (bool, error) {
-	var result int
-	query := "SELECT COUNT(*) FROM users WHERE email = $1"
-	if err := repo.db.QueryRow(query, email).Scan(&result); err != nil {
-		return false, errors.New("email not found")
+	var result string
+	query := "SELECT status FROM users WHERE email = $1"
+
+	err := repo.db.QueryRow(query, email).Scan(&result)
+	if err != nil {
+		fmt.Println(err)
+		if err == sql.ErrNoRows {
+			fmt.Println(err)
+			return false, errors.New("email not registered")
+		}
+		return false, err
 	}
 
-	if result == 0 {
-		return false, errors.New("email not found")
+	if result != "active" {
+		return false, errors.New("account has not been activated, please check the email inbox for the activation link")
 	}
 
 	return true, nil
 }
 
 func (repo *userRepository) CekPhoneNumber(pnumber string) (bool, error) {
-	var result int
-	query := "SELECT COUNT(*) FROM users WHERE phone_number = $1"
-	if err := repo.db.QueryRow(query, pnumber).Scan(&result); err != nil {
-		return false, errors.New("phone number not found")
+	var result string
+	query := "SELECT status FROM users WHERE phone_number = $1"
+
+	err := repo.db.QueryRow(query, pnumber).Scan(&result)
+	if err != nil {
+		fmt.Println(err)
+		if err == sql.ErrNoRows {
+			fmt.Println(err)
+			return false, errors.New("phone number not registered")
+		}
+		return false, err
 	}
 
-	if result == 0 {
-		return false, errors.New("phone number not found")
+	if result != "active" {
+		return false, errors.New("account has not been activated, please check the email inbox for the activation link")
 	}
 
 	return true, nil
@@ -81,8 +99,8 @@ func (repo *userRepository) InsertCode(code, email, pnumber string) (bool, error
 func (repo *userRepository) UserLogin(req userDto.UserLoginRequest) (resp userDto.UserLoginResponse, err error) {
 	var expiredCode time.Time
 
-	query := "SELECT id, email, pin, expired_code FROM users WHERE phone_number = $1 AND verification_code = $2"
-	if err := repo.db.QueryRow(query, req.PhoneNumber, req.Code).Scan(&resp.UserId, &resp.UserEmail, &resp.Pin, &expiredCode); err != nil {
+	query := "SELECT id, email, pin, expired_code, roles, status FROM users WHERE phone_number = $1 AND verification_code = $2"
+	if err := repo.db.QueryRow(query, req.PhoneNumber, req.Code).Scan(&resp.UserId, &resp.UserEmail, &resp.Pin, &expiredCode, &resp.Roles, &resp.Status); err != nil {
 		fmt.Println(req.Code)
 		return resp, errors.New("invalid pin or verification code")
 	}
@@ -95,18 +113,83 @@ func (repo *userRepository) UserLogin(req userDto.UserLoginRequest) (resp userDt
 		return resp, errors.New("verification code has expired")
 	}
 
-	return resp, nil
-}
-
-func (repo *userRepository) UserCreate(req userDto.UserCreateRequest) (resp userDto.UserCreateResponse, err error) {
-	query := "INSERT INTO users (fullname, username, email, pin, phone_number) VALUES ($1, $2, $3, $4, $5) RETURNING id, fullname, username, email, phone_number"
-
-	if err := repo.db.QueryRow(query, req.Fullname, req.Username, req.Email, req.Pin, req.PhoneNumber).Scan(&resp.Id, &resp.Fullname, &resp.Username, &resp.Email, &resp.PhoneNumber); err != nil {
-		fmt.Println(err)
-		return resp, errors.New("fail to create user")
+	if resp.Status != "active" {
+		return resp, errors.New("account has not been activated, please check the email inbox for the activation link")
 	}
 
 	return resp, nil
+}
+
+func (repo *userRepository) UserUploadImage(req userDto.UploadImagesRequest) (userDto.UploadImagesResponse, error) {
+
+	cldService, _ := cloudinary.NewFromURL(os.Getenv("CLOUDINARY_URL"))
+
+	ctx := context.Background()
+
+	var resp userDto.UploadImagesResponse
+	response, _ := cldService.Upload.Upload(ctx, req.File, uploader.UploadParams{})
+
+	resp.Url = response.SecureURL
+
+	return resp, nil
+}
+
+func (repo *userRepository) ImageToDB(userId string, req userDto.UploadImagesResponse) error {
+	query := `
+		UPDATE users
+		SET image_url = $1
+		WHERE id = $2
+	`
+	if _, err := repo.db.Exec(query, req.Url, userId); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repo *userRepository) UserCreate(req userDto.UserCreateRequest) (resp userDto.UserCreateResponse, unique string, err error) {
+	// Query untuk memeriksa apakah email sudah digunakan
+	checkEmailQuery := "SELECT COUNT(*) FROM users WHERE email = $1"
+	var emailCount int
+	if err := repo.db.QueryRow(checkEmailQuery, req.Email).Scan(&emailCount); err != nil {
+		return resp, "", errors.New("failed to check email")
+	}
+	if emailCount > 0 {
+		return resp, "", errors.New("email is already in use")
+	}
+
+	checkPhoneQuery := "SELECT COUNT(*) FROM users WHERE phone_number = $1"
+	var phoneCount int
+	if err := repo.db.QueryRow(checkPhoneQuery, req.PhoneNumber).Scan(&phoneCount); err != nil {
+		return resp, "", errors.New("failed to check phone number")
+	}
+	if phoneCount > 0 {
+		return resp, "", errors.New("phone number is already in use")
+	}
+
+	query := `
+		INSERT INTO users (fullname, username, email, pin, phone_number, roles)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, fullname, username, email, phone_number, pin
+	`
+	if err := repo.db.QueryRow(query, req.Fullname, req.Username, req.Email, req.Pin, req.PhoneNumber, req.Roles).Scan(&resp.Id, &resp.Fullname, &resp.Username, &resp.Email, &resp.PhoneNumber, &unique); err != nil {
+		return resp, "", errors.New("fail to create user")
+	}
+
+	return resp, unique, nil
+}
+
+func (repo *userRepository) ActivedAccount(req userDto.ActivatedAccountReq) (err error) {
+	query := `
+		UPDATE users
+		SET status = 'active'
+		WHERE email = $1 AND username = $2 AND pin = $3
+	`
+	if _, err := repo.db.Exec(query, req.Email, req.Fullname, req.Unique); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (repo *userRepository) UserWalletCreate(id string) (err error) {
@@ -122,8 +205,8 @@ func (repo *userRepository) UserWalletCreate(id string) (err error) {
 
 func (repo *userRepository) GetDataUserRepo(id string) (resp userDto.UserGetDataResponse, err error) {
 
-	query := "SELECT fullname, username, email, phone_number FROM users WHERE id = $1;"
-	if err := repo.db.QueryRow(query, id).Scan(&resp.Fullname, &resp.Username, &resp.Email, &resp.PhoneNumber); err != nil {
+	query := "SELECT fullname, username, email, phone_number, image_url FROM users WHERE id = $1;"
+	if err := repo.db.QueryRow(query, id).Scan(&resp.Fullname, &resp.Username, &resp.Email, &resp.PhoneNumber, &resp.ProfilImages); err != nil {
 		return resp, errors.New("fail to get data db")
 	}
 
@@ -137,14 +220,83 @@ func (repo *userRepository) GetBalanceInfoRepo(id string) (resp userDto.UserGetD
 		return resp, errors.New("fail to get data db")
 	}
 
-	fmt.Println("Balance:", resp.Balance)
-
 	return resp, nil
 }
 
-func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionParams) ([]userDto.GetTransactionResponse, error) {
-	// Query utama untuk transaksi pengguna
+func (repo *userRepository) GetTotalDataCount(params userDto.GetTransactionParams) (totalData int, err error) {
+
+	subquery1 := `
+      SELECT COUNT(*)
+      FROM
+            transactions t
+      WHERE
+            t.user_id = $1
+   `
+
+	subquery2 := `
+      SELECT COUNT(*)
+      FROM
+            transactions t
+      JOIN
+            wallet_transactions wt ON t.id = wt.transaction_id
+      JOIN
+            wallets w ON wt.from_wallet_id = w.id OR wt.to_wallet_id = w.id
+      WHERE
+            w.user_id = $1
+   `
+
+	args := []interface{}{params.UserId}
+	conditionIndex := 2
+
+	addCondition := func(condition string, value interface{}) {
+		subquery1 += fmt.Sprintf(" AND %s = $%d", condition, conditionIndex)
+		subquery2 += fmt.Sprintf(" AND %s = $%d", condition, conditionIndex)
+		args = append(args, value)
+		conditionIndex++
+	}
+
+	if params.TrxId != "" {
+		addCondition("t.id", params.TrxId)
+	}
+	if params.TrxType != "" {
+		addCondition("t.transaction_type", params.TrxType)
+	}
+	if params.TrxDateStart != "" {
+		subquery1 += fmt.Sprintf(" AND t.created_at >= $%d", conditionIndex)
+		subquery2 += fmt.Sprintf(" AND t.created_at >= $%d", conditionIndex)
+		args = append(args, params.TrxDateStart)
+		conditionIndex++
+	}
+	if params.TrxDateEnd != "" {
+		subquery1 += fmt.Sprintf(" AND t.created_at <= $%d", conditionIndex)
+		subquery2 += fmt.Sprintf(" AND t.created_at <= $%d", conditionIndex)
+		args = append(args, params.TrxDateEnd)
+		conditionIndex++
+	}
+	if params.TrxStatus != "" {
+		addCondition("t.status", params.TrxStatus)
+	}
+
 	query := `
+      SELECT SUM(count)
+      FROM (
+            ` + subquery1 + `
+            UNION ALL
+            ` + subquery2 + `
+      ) AS subquery
+   `
+
+	// Eksekusi query dan memindai hasilnya ke totalData
+	if err := repo.db.QueryRow(query, args...).Scan(&totalData); err != nil {
+		return 0, fmt.Errorf("fail to get total data count: %w", err)
+	}
+
+	return totalData, nil
+}
+
+func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionParams) ([]userDto.GetTransactionResponse, error) {
+
+	baseQuery := `
       SELECT
             t.id,
             t.transaction_type,
@@ -173,8 +325,57 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
       WHERE
             w.user_id = $1
    `
+	args := []interface{}{params.UserId}
+	conditionIndex := 2
 
-	rows, err := repo.db.Query(query, params.UserId)
+	addCondition := func(condition string, value interface{}) {
+		baseQuery += fmt.Sprintf(" AND %s = $%d", condition, conditionIndex)
+		args = append(args, value)
+		conditionIndex++
+	}
+
+	if params.TrxId != "" {
+		addCondition("t.id", params.TrxId)
+	}
+	if params.TrxType != "" {
+		addCondition("t.transaction_type", params.TrxType)
+	}
+	if params.TrxDateStart != "" {
+		baseQuery += fmt.Sprintf(" AND t.created_at >= $%d", conditionIndex)
+		args = append(args, params.TrxDateStart)
+		conditionIndex++
+	}
+	if params.TrxDateEnd != "" {
+		baseQuery += fmt.Sprintf(" AND t.created_at <= $%d", conditionIndex)
+		args = append(args, params.TrxDateEnd)
+		conditionIndex++
+	}
+	if params.TrxStatus != "" {
+		addCondition("t.status", params.TrxStatus)
+	}
+
+	if params.Page != "" && params.Limit != "" {
+		page, _ := strconv.Atoi(params.Page)
+		limit, _ := strconv.Atoi(params.Limit)
+		offset := (page - 1) * limit
+		baseQuery += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	}
+
+	query := `
+      SELECT
+            id,
+            transaction_type,
+            amount,
+            description,
+            created_at,
+            status
+      FROM (
+            ` + baseQuery + `
+      ) sub
+      WHERE 1=1
+   `
+
+	rows, err := repo.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get data from db: %w", err)
 	}
@@ -188,13 +389,11 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 			return nil, fmt.Errorf("failed to scan transaction data: %w", err)
 		}
 
-		// Default empty detail
 		transaction.Detail = userDto.TransactionDetail{}
 
-		// Query untuk mendapatkan payment_method_id dari topup_transactions
 		paymentMethodQuery := `
             SELECT
-               pm.payment_name
+               pm.payment_name, tt.payment_url
             FROM
                topup_transactions tt
             JOIN
@@ -203,26 +402,31 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
                tt.transaction_id = $1
       `
 		var paymentMethod sql.NullString
-		err = repo.db.QueryRow(paymentMethodQuery, transaction.TransactionId).Scan(&paymentMethod)
+		var paymentURL sql.NullString
+		err = repo.db.QueryRow(paymentMethodQuery, transaction.TransactionId).Scan(&paymentMethod, &paymentURL)
 		if err != nil && err != sql.ErrNoRows {
 			return nil, fmt.Errorf("failed to query topup transaction: %w", err)
 		}
 		if paymentMethod.Valid {
 			transaction.Detail.PaymentMethod = paymentMethod.String
+			if paymentURL.Valid {
+				transaction.Detail.PaymentURL = paymentURL.String
+			}
 		}
 
-		// Query untuk mendapatkan SenderName dan RecipientName dari wallet_transactions
 		walletTransactionQuery := `
             SELECT
-                (SELECT u.username FROM users u JOIN wallets wf ON u.id = wf.user_id WHERE wf.id = wt.from_wallet_id) AS sender_name,
-                (SELECT u.username FROM users u JOIN wallets wr ON u.id = wr.user_id WHERE wr.id = wt.to_wallet_id) AS recipient_name
+               (SELECT u.username FROM users u JOIN wallets wf ON u.id = wf.user_id WHERE wf.id = wt.from_wallet_id) AS sender_name,
+               (SELECT u.id FROM users u JOIN wallets wf ON u.id = wf.user_id WHERE wf.id = wt.from_wallet_id) AS sender_id,
+               (SELECT u.username FROM users u JOIN wallets wr ON u.id = wr.user_id WHERE wr.id = wt.to_wallet_id) AS recipient_name,
+               (SELECT u.id FROM users u JOIN wallets wr ON u.id = wr.user_id WHERE wr.id = wt.to_wallet_id) AS recipient_id
             FROM
-                wallet_transactions wt
+               wallet_transactions wt
             WHERE
-                wt.transaction_id = $1
-        `
-		var senderName, recipientName sql.NullString
-		err = repo.db.QueryRow(walletTransactionQuery, transaction.TransactionId).Scan(&senderName, &recipientName)
+               wt.transaction_id = $1
+      `
+		var senderName, recipientName, senderId, recipientId sql.NullString
+		err = repo.db.QueryRow(walletTransactionQuery, transaction.TransactionId).Scan(&senderName, &senderId, &recipientName, &recipientId)
 		if err != nil && err != sql.ErrNoRows {
 			return nil, fmt.Errorf("failed to query wallet transaction: %w", err)
 		}
@@ -232,12 +436,22 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 		if recipientName.Valid {
 			transaction.Detail.RecipientName = recipientName.String
 		}
+		if senderId.Valid {
+			transaction.Detail.SenderId = senderId.String
+		}
+		if recipientId.Valid {
+			transaction.Detail.RecipientId = recipientId.String
+		}
 
 		resp = append(resp, transaction)
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed to iterate over transaction rows: %w", err)
+	}
+
+	if len(resp) == 0 {
+		return nil, errors.New("transaction not found")
 	}
 
 	return resp, nil
@@ -269,7 +483,6 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 		return "", err
 	}
 
-	// Check if payment_method_id is valid
 	var validPaymentMethod bool
 	checkPaymentMethodQuery := `
 		SELECT EXISTS (
@@ -284,7 +497,6 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 		return "", err
 	}
 
-	// Insert into transactions table without specifying the id
 	transactionQuery := `
 		INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
 		VALUES ($1, 'credit', $2, $3, $4, 'pending')
@@ -297,7 +509,6 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 		return "", err
 	}
 
-	// Insert into topup_transactions table without specifying the id
 	topupTransactionQuery := `
 		INSERT INTO topup_transactions (transaction_id, payment_method_id, created_at)
 		VALUES ($1, $2, $3)
@@ -308,7 +519,6 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 		return "", err
 	}
 
-	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return "", err
 	}
@@ -341,97 +551,182 @@ func (repo *userRepository) PaymentGateway(payload userDto.MidtransSnapReq) (use
 	return snapResp, nil
 }
 
-func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactionRequest) (userDto.WalletTransactionResponse, error) {
-	tx, err := repo.db.Begin()
-	if err != nil {
-		return userDto.WalletTransactionResponse{}, err
+func (repo *userRepository) InsertURL(transactionId, url string) (err error) {
+
+	query := `
+		UPDATE topup_transactions
+		SET payment_url = $1
+		WHERE transaction_id = $2
+	`
+	if _, err := repo.db.Exec(query, url, transactionId); err != nil {
+		return err
 	}
 
-	// Check if the sender's wallet has sufficient balance
+	return nil
+}
+
+func (repo *userRepository) UpdateTransactionStatus(orderID string, status string) error {
+
+	query := `UPDATE transactions SET status = $1 WHERE id = $2`
+	_, err := repo.db.Exec(query, status, orderID)
+	if err != nil {
+		fmt.Println("Error updating transaction status:", err)
+	}
+
+	return err
+}
+
+func (repo *userRepository) UpdateBalance(orderID, amountStr string) error {
+	amount, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil {
+		return fmt.Errorf("invalid amount: %v", err)
+	}
+
+	var userID string
+	query := `SELECT user_id FROM transactions WHERE id = $1`
+	err = repo.db.QueryRow(query, orderID).Scan(&userID)
+	if err != nil {
+		fmt.Println("Error finding user_id from transactions:", err)
+		return err
+	}
+
+	var walletID string
+	query = `SELECT id FROM wallets WHERE user_id = $1`
+	err = repo.db.QueryRow(query, userID).Scan(&walletID)
+	if err != nil {
+		fmt.Println("Error finding wallet_id from wallets:", err)
+		return err
+	}
+
+	query = `UPDATE wallets SET balance = balance + $1 WHERE id = $2`
+	_, err = repo.db.Exec(query, amount, walletID)
+	if err != nil {
+		fmt.Println("Error updating wallet balance:", err)
+		return err
+	}
+
+	return nil
+}
+
+func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactionRequest) (userDto.WalletTransactionResponse, string, error) {
+	tx, err := repo.db.Begin()
+	if err != nil {
+		return userDto.WalletTransactionResponse{}, "", err
+	}
+
+	getWalletIdQuery := `SELECT id FROM wallets WHERE user_id = $1`
+	err = tx.QueryRow(getWalletIdQuery, req.UserId).Scan(&req.FromWalletId)
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("disana: %v", err)
+	}
+
+	validatePinQuery := `SELECT pin FROM users WHERE id = $1`
+	var storedPin string
+	err = tx.QueryRow(validatePinQuery, req.UserId).Scan(&storedPin)
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, "", errors.New("user not found")
+	}
+
+	getRecipientWalletIdQuery := `
+        SELECT w.id 
+        FROM wallets w
+        JOIN users u ON u.id = w.user_id
+        WHERE u.phone_number = $1
+    `
+	err = tx.QueryRow(getRecipientWalletIdQuery, req.RecipientPhoneNumber).Scan(&req.ToWalletId)
+	if err != nil {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, "", errors.New("recipient not found")
+	}
+
 	var senderBalance float64
 	balanceQuery := `SELECT balance FROM wallets WHERE id = $1`
 	err = tx.QueryRow(balanceQuery, req.FromWalletId).Scan(&senderBalance)
 	if err != nil {
 		tx.Rollback()
-		return userDto.WalletTransactionResponse{}, err
+		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("disini: %v", err)
 	}
 
-	if senderBalance < req.Amount {
+	amount, err := strconv.ParseFloat(req.Amount, 64)
+	if err != nil {
+		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("invalid amount: %v", err)
+	}
+
+	if senderBalance < amount {
 		tx.Rollback()
-		return userDto.WalletTransactionResponse{}, errors.New("insufficient balance")
+		return userDto.WalletTransactionResponse{}, "", errors.New("insufficient balance")
 	}
 
-	// Check if recipient wallet exists
 	var recipientBalance float64
 	err = tx.QueryRow(balanceQuery, req.ToWalletId).Scan(&recipientBalance)
 	if err != nil {
 		tx.Rollback()
-		return userDto.WalletTransactionResponse{}, errors.New("recipient wallet not found")
+		return userDto.WalletTransactionResponse{}, "", errors.New("recipient wallet not found")
 	}
 
-	// Insert into transactions table
 	transactionQuery := `
-		INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
-		VALUES ($1, 'debit', $2, $3, $4, 'pending')
-		RETURNING id
-	`
+        INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
+        VALUES ($1, 'debit', $2, $3, $4, 'success')
+        RETURNING id
+    `
 	var transactionID string
 	err = tx.QueryRow(transactionQuery, req.UserId, req.Amount, req.Description, time.Now()).Scan(&transactionID)
 	if err != nil {
 		tx.Rollback()
-		return userDto.WalletTransactionResponse{}, err
+		return userDto.WalletTransactionResponse{}, "", err
 	}
 
-	// Insert into wallet_transactions table
 	walletTransactionQuery := `
-		INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
-		VALUES ($1, $2, $3, $4)
-	`
+        INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
+        VALUES ($1, $2, $3, $4)
+    `
 	_, err = tx.Exec(walletTransactionQuery, transactionID, req.FromWalletId, req.ToWalletId, time.Now())
 	if err != nil {
 		tx.Rollback()
-		return userDto.WalletTransactionResponse{}, err
+		return userDto.WalletTransactionResponse{}, "", err
 	}
 
-	// Update sender's wallet balance and ensure it does not go below zero
+	currentTime := time.Now()
+
 	updateSenderBalanceQuery := `
-		UPDATE wallets
-		SET balance = balance - $1
-		WHERE id = $2 AND balance >= $1
-	`
-	res, err := tx.Exec(updateSenderBalanceQuery, req.Amount, req.FromWalletId)
+        UPDATE wallets
+        SET balance = balance - $1, updated_at = $2
+        WHERE id = $3 AND balance >= $1
+    `
+
+	res, err := tx.Exec(updateSenderBalanceQuery, amount, currentTime, req.FromWalletId)
 	if err != nil {
 		tx.Rollback()
-		return userDto.WalletTransactionResponse{}, err
+		return userDto.WalletTransactionResponse{}, "", err
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		tx.Rollback()
-		return userDto.WalletTransactionResponse{}, err
+		return userDto.WalletTransactionResponse{}, "", err
 	}
 
 	if rowsAffected < 1 {
 		tx.Rollback()
-		return userDto.WalletTransactionResponse{}, errors.New("insufficient balance after check")
+		return userDto.WalletTransactionResponse{}, "", errors.New("insufficient balance after check")
 	}
 
-	// Update recipient's wallet balance
 	updateRecipientBalanceQuery := `
-		UPDATE wallets
-		SET balance = balance + $1
-		WHERE id = $2
-	`
-	_, err = tx.Exec(updateRecipientBalanceQuery, req.Amount, req.ToWalletId)
+        UPDATE wallets
+        SET balance = balance + $1, updated_at = $2
+        WHERE id = $3
+    `
+	_, err = tx.Exec(updateRecipientBalanceQuery, amount, currentTime, req.ToWalletId)
 	if err != nil {
 		tx.Rollback()
-		return userDto.WalletTransactionResponse{}, err
+		return userDto.WalletTransactionResponse{}, "", err
 	}
 
-	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return userDto.WalletTransactionResponse{}, err
+		return userDto.WalletTransactionResponse{}, "", err
 	}
 
-	return userDto.WalletTransactionResponse{TransactionId: transactionID}, nil
+	return userDto.WalletTransactionResponse{TransactionId: transactionID}, storedPin, nil
 }

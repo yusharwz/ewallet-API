@@ -144,6 +144,8 @@ func RunService() {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterValidation("password", validation.ValidatePassword)
 		v.RegisterValidation("nomorHp", validation.ValidateNoHp)
+		v.RegisterValidation("username", validation.ValidateUsername)
+		v.RegisterValidation("pin", validation.ValidatePIN)
 	}
 
 	r.Use(logger.SetLogger(

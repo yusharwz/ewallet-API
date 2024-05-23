@@ -19,17 +19,30 @@ func NewUserDelivery(v1Group *gin.RouterGroup, userUC user.UserUsecase) {
 	handler := userDelivery{
 		userUC: userUC,
 	}
-	userGroup := v1Group.Group("/users")
 
+	authGroup := v1Group.Group("/auth")
 	{
-		userGroup.POST("/register", middleware.BasicAuth, handler.createUserRequest)
-		userGroup.POST("/reqcode/email", middleware.BasicAuth, handler.loginUserCodeReuqestEmail)
-		userGroup.POST("/reqcode/whatsapp", middleware.BasicAuth, handler.loginUserCodeReuqestSMS)
-		userGroup.POST("/login", middleware.BasicAuth, handler.loginUserReuqest)
-		userGroup.GET("/info", middleware.JWTAuth(), handler.getDataUser)
-		userGroup.GET("/info/balance", middleware.JWTAuth(), handler.getBalanceInfo)
-		userGroup.GET("/info/transactions", middleware.JWTAuth(), handler.getTransactionsDetail)
-		userGroup.POST("/info/balance/topup", middleware.JWTAuth(), handler.topupTransactionRequest)
+		authGroup.POST("/register", middleware.BasicAuth, handler.createUserRequest)
+		authGroup.POST("/request-otp/email", middleware.BasicAuth, handler.loginUserCodeReuqestEmail)
+		authGroup.POST("/request-otp/message", middleware.BasicAuth, handler.loginUserCodeReuqestSMS)
+		authGroup.POST("/login", middleware.BasicAuth, handler.loginUserReuqest)
+		authGroup.GET("/activate-account", handler.activatedAccount)
+	}
+
+	userGroup := v1Group.Group("/user")
+	{
+		userGroup.GET("/info", middleware.JwtAuthWithRoles("USER"), handler.getDataUser)
+		userGroup.POST("/info/upload-image", middleware.JwtAuthWithRoles("USER"), handler.uploadProfilImage)
+		userGroup.GET("/info/transactions", middleware.JwtAuthWithRoles("USER"), handler.getTransactionsDetail)
+		userGroup.GET("/balance", middleware.JwtAuthWithRoles("USER"), handler.getBalanceInfo)
+		userGroup.POST("/balance/topup", middleware.JwtAuthWithRoles("USER"), handler.topupTransactionRequest)
+		userGroup.POST("/balance/transfer", middleware.JwtAuthWithRoles("USER"), handler.walletTransactionRequest)
+	}
+
+	paymentGroup := v1Group.Group("/payment")
+	{
+		paymentGroup.POST("/status/midtrans", handler.midtransStatusRequest)
+		paymentGroup.GET("/status/midtrans", handler.midtransStatusRequestGet)
 	}
 }
 
@@ -110,12 +123,29 @@ func (u *userDelivery) createUserRequest(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := u.userUC.CreateReq(req)
+	_, err := u.userUC.CreateReq(req)
 	if err != nil {
 		json.NewResponseForbidden(ctx, err.Error(), "01", "01")
 		return
 	}
-	json.NewResponSucces(ctx, resp, "login succes", "01", "01")
+
+	json.NewResponSucces(ctx, nil, "create account succes, please check your email for activated your account", "01", "01")
+}
+
+func (u *userDelivery) activatedAccount(ctx *gin.Context) {
+	var req userDto.ActivatedAccountReq
+
+	req.Email = ctx.Query("email")
+	req.Fullname = ctx.Query("fullname")
+	req.Unique = ctx.Query("unique")
+
+	err := u.userUC.ActivaedAccount(req)
+	if err != nil {
+		json.NewResponseForbidden(ctx, err.Error(), "01", "01")
+		return
+	}
+
+	json.NewResponSucces(ctx, nil, "your account has been activated", "01", "01")
 }
 
 func (u *userDelivery) getDataUser(ctx *gin.Context) {
@@ -128,6 +158,31 @@ func (u *userDelivery) getDataUser(ctx *gin.Context) {
 	}
 
 	json.NewResponSucces(ctx, resp, "Succes get data", "01", "01")
+}
+
+func (u *userDelivery) uploadProfilImage(ctx *gin.Context) {
+	var req userDto.UploadImagesRequest
+	authHeader := ctx.GetHeader("Authorization")
+	fileHeader, err := ctx.FormFile("image")
+	if err != nil {
+		fmt.Println(err)
+		json.NewResponseError(ctx, "failed to get file", "02", "02")
+		return
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		fmt.Println(err)
+		json.NewResponseError(ctx, "failed to open file", "02", "02")
+		return
+	}
+	req.File = file
+	err = u.userUC.UploadImagesRequestUC(authHeader, req)
+	if err != nil {
+		json.NewResponseError(ctx, "failed to upload image", "02", "02")
+		return
+	}
+	json.NewResponSucces(ctx, nil, "Succes upload image", "01", "01")
+
 }
 
 func (u *userDelivery) getBalanceInfo(ctx *gin.Context) {
@@ -148,20 +203,20 @@ func (u *userDelivery) getTransactionsDetail(ctx *gin.Context) {
 	authHeader := ctx.GetHeader("Authorization")
 	params.TrxId = ctx.Query("trxId")
 	params.TrxType = ctx.Query("trxType")
-	params.TrxDateStart = ctx.Query("transactionDateStart")
-	params.TrxDateEnd = ctx.Query("transactionDateEnd")
+	params.TrxDateStart = ctx.Query("trxDateStart")
+	params.TrxDateEnd = ctx.Query("trxDateEnd")
 	params.TrxStatus = ctx.Query("paymentStatus")
 	params.Page = ctx.Query("page")
-	params.Limit = ctx.Query("limit")
+	params.Limit = ctx.Query("size")
 
-	resp, err := u.userUC.GetTransactionUC(authHeader, params)
+	resp, totalData, err := u.userUC.GetTransactionUC(authHeader, params)
 	if err != nil {
 		fmt.Println(err)
 		json.NewResponseError(ctx, "failed to get transaction data", "02", "02")
 		return
 	}
 
-	json.NewResponSucces(ctx, resp, "Succes get transaction data", "01", "01")
+	json.NewResponSuccesPaging(ctx, resp, "Succes get transaction data", "01", "01", params.Page, totalData)
 
 }
 
@@ -185,4 +240,45 @@ func (u *userDelivery) topupTransactionRequest(ctx *gin.Context) {
 		return
 	}
 	json.NewResponSucces(ctx, resp, "create transaction succes", "01", "01")
+}
+
+func (u *userDelivery) walletTransactionRequest(ctx *gin.Context) {
+	authHeader := ctx.GetHeader("Authorization")
+	var req userDto.WalletTransactionRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+		json.NewResponseError(ctx, "json request body required", "01", "02")
+		return
+	}
+
+	resp, err := u.userUC.WalletTransaction(req, authHeader)
+	if err != nil {
+		json.NewResponseError(ctx, err.Error(), "01", "01")
+		return
+	}
+	json.NewResponSucces(ctx, resp, "Transfer succes", "01", "01")
+}
+
+func (u *userDelivery) midtransStatusRequest(ctx *gin.Context) {
+	var notification userDto.MidtransNotification
+	if err := ctx.ShouldBindJSON(&notification); err != nil {
+		json.NewResponseError(ctx, "", "01", "01")
+	}
+
+	err := u.userUC.MidtransStatusReq(notification)
+	if err != nil {
+		json.NewResponseError(ctx, err.Error(), "01", "01")
+		return
+	}
+	json.NewResponSucces(ctx, "PaymentSucces", "create transaction succes", "01", "01")
+}
+
+func (u *userDelivery) midtransStatusRequestGet(ctx *gin.Context) {
+
+	json.NewResponSucces(ctx, "PaymentSucces", "create transaction succes", "01", "01")
 }
