@@ -3,6 +3,7 @@ package adminDelivery
 import (
 	"final-project-enigma/model/dto/adminDto"
 	"final-project-enigma/model/dto/json"
+	"final-project-enigma/model/dto/userDto"
 	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/pkg/validation"
 	"final-project-enigma/src/admin"
@@ -81,21 +82,7 @@ func (d *adminDelivery) UpdatePaymentMethod(ctx *gin.Context) {
 
 	json.NewResponSucces(ctx, updatePaymentMethod, "payment method updated successfully", "01", "05")
 }
-func (d *adminDelivery) SaveUser(ctx *gin.Context) {
-	var req adminDto.UserCreateRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		validationError := validation.GetValidationError(err)
-		if len(validationError) > 0 {
-			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
-			return
-		}
-	}
-	if err := d.adminUsecase.SaveUser(req); err != nil {
-		json.NewResponseError(ctx, err.Error(), "failed to add payment method", "01")
-		return
-	}
-	json.NewResponSucces(ctx, req, "succes", "01", "01")
-}
+
 func (d *adminDelivery) SoftDeleteUser(ctx *gin.Context) {
 	userID := ctx.Param("id")
 	err := d.adminUsecase.SoftDeleteUser(userID)
@@ -178,15 +165,36 @@ func (d *adminDelivery) GetWalletByParams(c *gin.Context) {
 	json.NewResponSucces(c, wallets, "Success get wallet data", "01", "01")
 }
 
+func (d *adminDelivery) createUserRequest(ctx *gin.Context) {
+	var req userDto.UserCreateRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+		json.NewResponseError(ctx, "json request body required", "01", "02")
+		return
+	}
+
+	resp, err := d.adminUsecase.CreateReq(req)
+	if err != nil {
+		json.NewResponseForbidden(ctx, err.Error(), "01", "01")
+		return
+	}
+	json.NewResponSucces(ctx, resp, "user created succes", "01", "01")
+}
+
 func NewAdminDelivery(router *gin.RouterGroup, adminUsecase admin.AdminUsecase) {
 	handler := adminDelivery{adminUsecase: adminUsecase}
 
 	adminGroup := router.Group("/admin")
 	{
 		adminGroup.Use(middleware.BasicAuth)
+		adminGroup.POST("/user", handler.createUserRequest)
 
 		adminGroup.GET("/users", handler.GetUsersByParams)
-		adminGroup.POST("/user", handler.SaveUser)
 		adminGroup.DELETE("/user/:id", handler.SoftDeleteUser)
 		adminGroup.PUT("/user/:id", handler.UpdateUser)
 

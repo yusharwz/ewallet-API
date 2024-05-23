@@ -2,6 +2,7 @@ package adminUsecase
 
 import (
 	"final-project-enigma/model/dto/adminDto"
+	"final-project-enigma/model/dto/userDto"
 	"final-project-enigma/pkg/hashingPassword"
 	"final-project-enigma/src/admin"
 )
@@ -14,29 +15,6 @@ func NewAdminUsecase(adminRepo admin.AdminRepository) admin.AdminUsecase {
 	return &adminUC{adminRepo}
 }
 
-func (u *adminUC) SaveUser(request adminDto.UserCreateRequest) error {
-	// Hash the PIN before saving the user
-	hashedPin, err := hashingPassword.HashPassword(request.Pin)
-	if err != nil {
-		return err
-	}
-
-	// Create a new user DTO with the hashed PIN
-	user := adminDto.User{
-		Fullname:    request.Fullname,
-		Username:    request.Username,
-		Email:       request.Email,
-		Pin:         hashedPin, // Assign the hashed PIN
-		PhoneNumber: request.PhoneNumber,
-	}
-
-	// Save the user with the hashed PIN
-	if err := u.adminRepo.SaveUser(user); err != nil {
-		return err
-	}
-
-	return nil
-}
 func (u *adminUC) SoftDeleteUser(userID string) error {
 	err := u.adminRepo.SoftDeleteUser(userID)
 	if err != nil {
@@ -118,4 +96,26 @@ func (u *adminUC) UpdatePaymentMethod(request adminDto.UpdatePaymentRequest) err
 	}
 
 	return nil
+}
+
+func (u *adminUC) CreateReq(req userDto.UserCreateRequest) (resp userDto.UserCreateResponse, err error) {
+
+	hashedPin, err := hashingPassword.HashPassword(req.Pin)
+	if err != nil {
+		return resp, err
+	}
+
+	req.Pin = hashedPin
+
+	resp, err = u.adminRepo.UserCreate(req)
+	if err != nil {
+		return resp, err
+	}
+
+	err = u.adminRepo.UserWalletCreate(resp.Id)
+	if err != nil {
+		return resp, err
+	}
+
+	return resp, nil
 }

@@ -2,10 +2,10 @@ package admin
 
 import (
 	"final-project-enigma/model/dto/adminDto"
+	"final-project-enigma/model/dto/userDto"
 )
 
 type AdminRepository interface {
-	SaveUser(user adminDto.User) error
 	SoftDeleteUser(userID string) error
 	UpdateUser(userID adminDto.User) error
 	GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.User, error)
@@ -14,10 +14,11 @@ type AdminRepository interface {
 	SavePaymentMethod(paymentMethodoe adminDto.PaymentMethod) error
 	SoftDeletePaymentMethod(paymentMethodID string) error
 	UpdatePaymentMethod(paymenmethodID adminDto.PaymentMethod) error
+	UserWalletCreate(id string) (err error)
+	UserCreate(req userDto.UserCreateRequest) (userDto.UserCreateResponse, error)
 }
 
 type AdminUsecase interface {
-	SaveUser(request adminDto.UserCreateRequest) error
 	UpdateUser(request adminDto.UserUpdateRequest) error
 	SoftDeleteUser(UserID string) error
 	GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.User, error)
@@ -26,4 +27,5 @@ type AdminUsecase interface {
 	SavePaymentMethod(request adminDto.CreatePaymentMethod) error
 	SoftDeletePaymentMethod(paymentMethodID string) error
 	UpdatePaymentMethod(request adminDto.UpdatePaymentRequest) error
+	CreateReq(req userDto.UserCreateRequest) (userDto.UserCreateResponse, error)
 }

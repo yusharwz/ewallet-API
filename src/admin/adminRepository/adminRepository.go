@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"final-project-enigma/model/dto/adminDto"
+	"final-project-enigma/model/dto/userDto"
 	"time"
 
 	"fmt"
@@ -81,48 +82,6 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	return users, nil
 }
 
-func (r *adminRepo) SaveUser(user adminDto.User) error {
-	// Check if username already exists
-	var usernameExists bool
-	usernameQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)"
-	err := r.db.QueryRow(usernameQuery, user.Username).Scan(&usernameExists)
-	if err != nil {
-		return err
-	}
-	if usernameExists {
-		return errors.New("username already exists")
-	}
-
-	// Check if email already exists
-	var emailExists bool
-	emailQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"
-	err = r.db.QueryRow(emailQuery, user.Email).Scan(&emailExists)
-	if err != nil {
-		return err
-	}
-	if emailExists {
-		return errors.New("email already exists")
-	}
-
-	// Check if phone number already exists
-	var phoneNumberExists bool
-	phoneQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE phone_number = $1)"
-	err = r.db.QueryRow(phoneQuery, user.PhoneNumber).Scan(&phoneNumberExists)
-	if err != nil {
-		return err
-	}
-	if phoneNumberExists {
-		return errors.New("phone number already exists")
-	}
-
-	// Insert the user if all checks pass
-	query := "INSERT INTO users(fullname, username, email, phone_number, pin, created_at) VALUES($1, $2, $3, $4, $5, $6)"
-	_, err = r.db.Exec(query, user.Fullname, user.Username, user.Email, user.PhoneNumber, user.Pin, time.Now())
-	if err != nil {
-		return err
-	}
-	return nil
-}
 func (r *adminRepo) SoftDeleteUser(userID string) error {
 	query := "UPDATE users SET deleted_at=$1 WHERE id=$2 AND deleted_at IS NULL"
 	result, err := r.db.Exec(query, time.Now(), userID)
@@ -376,6 +335,59 @@ func (r *adminRepo) GetWalletByParams(params adminDto.GetWalletParams) ([]adminD
 	}
 
 	return wallets, nil
+}
+
+func (r *adminRepo) UserCreate(req userDto.UserCreateRequest) (resp userDto.UserCreateResponse, err error) {
+	var usernameExists bool
+	usernameQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)"
+	err := r.db.QueryRow(usernameQuery, user.Username).Scan(&usernameExists)
+	if err != nil {
+		return err
+	}
+	if usernameExists {
+		return errors.New("username already exists")
+	}
+
+	// Check if email already exists
+	var emailExists bool
+	emailQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"
+	err = r.db.QueryRow(emailQuery, user.Email).Scan(&emailExists)
+	if err != nil {
+		return err
+	}
+	if emailExists {
+		return errors.New("email already exists")
+	}
+
+	// Check if phone number already exists
+	var phoneNumberExists bool
+	phoneQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE phone_number = $1)"
+	err = r.db.QueryRow(phoneQuery, user.PhoneNumber).Scan(&phoneNumberExists)
+	if err != nil {
+		return err
+	}
+	if phoneNumberExists {
+		return errors.New("phone number already exists")
+	}
+	query := "INSERT INTO users (fullname, username, email, pin, phone_number) VALUES ($1, $2, $3, $4, $5) RETURNING id, fullname, username, email, phone_number"
+
+	if err := r.db.QueryRow(query, req.Fullname, req.Username, req.Email, req.Pin, req.PhoneNumber).Scan(&resp.Id, &resp.Fullname, &resp.Username, &resp.Email, &resp.PhoneNumber); err != nil {
+		fmt.Println(err)
+		return resp, errors.New("fail to create user")
+	}
+
+	return resp, nil
+}
+
+func (r *adminRepo) UserWalletCreate(id string) (err error) {
+	query := "INSERT INTO wallets (user_id) VALUES ($1)"
+
+	if _, err := r.db.Exec(query, id); err != nil {
+		fmt.Println(err)
+		return errors.New("fail to create wallet")
+	}
+
+	return nil
 }
 func NewAdminRepository(db *sql.DB) *adminRepo {
 	return &adminRepo{db}
