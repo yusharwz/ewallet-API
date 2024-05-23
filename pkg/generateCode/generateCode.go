@@ -13,18 +13,18 @@ const (
 	timeLayout         = "02/01/2006-15-04-05"
 )
 
-func GenerateCode() string {
+func GenerateCode() (string, error) {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	length := 6
 	result := make([]byte, length)
 	for i := range result {
 		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
 		if err != nil {
-			return ""
+			return "", err
 		}
 		result[i] = charset[num.Int64()]
 	}
-	return string(result)
+	return string(result), nil
 }
 
 func ValidateCode(encodedTime string) bool {

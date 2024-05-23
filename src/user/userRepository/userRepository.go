@@ -36,9 +36,7 @@ func (repo *userRepository) CekEmail(email string) (bool, error) {
 
 	err := repo.db.QueryRow(query, email).Scan(&result)
 	if err != nil {
-		fmt.Println(err)
 		if err == sql.ErrNoRows {
-			fmt.Println(err)
 			return false, errors.New("email not registered")
 		}
 		return false, err
@@ -57,9 +55,7 @@ func (repo *userRepository) CekPhoneNumber(pnumber string) (bool, error) {
 
 	err := repo.db.QueryRow(query, pnumber).Scan(&result)
 	if err != nil {
-		fmt.Println(err)
 		if err == sql.ErrNoRows {
-			fmt.Println(err)
 			return false, errors.New("phone number not registered")
 		}
 		return false, err
@@ -80,13 +76,11 @@ func (repo *userRepository) InsertCode(code, email, pnumber string) (bool, error
 	if email != "" {
 		query = "UPDATE users SET verification_code = $1, expired_code = $2 WHERE email = $3 RETURNING email;"
 		if err := repo.db.QueryRow(query, code, expiredCode, email).Scan(&resp); err != nil {
-			fmt.Println(err)
 			return false, errors.New("fail Insert Code")
 		}
 	} else if pnumber != "" {
 		query = "UPDATE users SET verification_code = $1, expired_code = $2 WHERE phone_number = $3 RETURNING phone_number;"
 		if err := repo.db.QueryRow(query, code, expiredCode, pnumber).Scan(&resp); err != nil {
-			fmt.Println(err)
 			return false, errors.New("fail Insert Code")
 		}
 	} else {
@@ -101,7 +95,6 @@ func (repo *userRepository) UserLogin(req userDto.UserLoginRequest) (resp userDt
 
 	query := "SELECT id, email, pin, expired_code, roles, status FROM users WHERE phone_number = $1 AND verification_code = $2"
 	if err := repo.db.QueryRow(query, req.PhoneNumber, req.Code).Scan(&resp.UserId, &resp.UserEmail, &resp.Pin, &expiredCode, &resp.Roles, &resp.Status); err != nil {
-		fmt.Println(req.Code)
 		return resp, errors.New("invalid pin or verification code")
 	}
 
@@ -109,7 +102,6 @@ func (repo *userRepository) UserLogin(req userDto.UserLoginRequest) (resp userDt
 	expiredTimestamp := expiredCode.Unix()
 	currentTimestamp := currentTime.Unix()
 	if currentTimestamp > expiredTimestamp {
-		fmt.Println("Verification code has expired")
 		return resp, errors.New("verification code has expired")
 	}
 
@@ -148,7 +140,7 @@ func (repo *userRepository) ImageToDB(userId string, req userDto.UploadImagesRes
 }
 
 func (repo *userRepository) UserCreate(req userDto.UserCreateRequest) (resp userDto.UserCreateResponse, unique string, err error) {
-	// Query untuk memeriksa apakah email sudah digunakan
+
 	checkEmailQuery := "SELECT COUNT(*) FROM users WHERE email = $1"
 	var emailCount int
 	if err := repo.db.QueryRow(checkEmailQuery, req.Email).Scan(&emailCount); err != nil {
@@ -156,6 +148,15 @@ func (repo *userRepository) UserCreate(req userDto.UserCreateRequest) (resp user
 	}
 	if emailCount > 0 {
 		return resp, "", errors.New("email is already in use")
+	}
+
+	checkUsernameQuery := "SELECT COUNT(*) FROM users WHERE email = $1"
+	var usernameCount int
+	if err := repo.db.QueryRow(checkUsernameQuery, req.Username).Scan(&usernameCount); err != nil {
+		return resp, "", errors.New("failed to check username")
+	}
+	if usernameCount > 0 {
+		return resp, "", errors.New("username is already in use")
 	}
 
 	checkPhoneQuery := "SELECT COUNT(*) FROM users WHERE phone_number = $1"
@@ -180,12 +181,25 @@ func (repo *userRepository) UserCreate(req userDto.UserCreateRequest) (resp user
 }
 
 func (repo *userRepository) ActivedAccount(req userDto.ActivatedAccountReq) (err error) {
-	query := `
+
+	var expiredCode time.Time
+	checkCodeExpired := "SELECT expired_code  FROM users WHERE email = $1 AND username = $2 AND pin = $3 AND verification_code = $4"
+	if err := repo.db.QueryRow(checkCodeExpired, req.Email, req.Fullname, req.Unique, req.Code).Scan(&expiredCode); err != nil {
+		return errors.New("failed to get expired code")
+	}
+	currentTime := time.Now().UTC().Add(7 * time.Hour)
+	expiredTimestamp := expiredCode.Unix()
+	currentTimestamp := currentTime.Unix()
+	if currentTimestamp > expiredTimestamp {
+		return errors.New("link activation has expired")
+	}
+
+	queryUpdate := `
 		UPDATE users
 		SET status = 'active'
-		WHERE email = $1 AND username = $2 AND pin = $3
+		WHERE email = $1 AND username = $2 AND pin = $3 AND verification_code = $4
 	`
-	if _, err := repo.db.Exec(query, req.Email, req.Fullname, req.Unique); err != nil {
+	if _, err := repo.db.Exec(queryUpdate, req.Email, req.Fullname, req.Unique, req.Code); err != nil {
 		return err
 	}
 
@@ -196,7 +210,6 @@ func (repo *userRepository) UserWalletCreate(id string) (err error) {
 	query := "INSERT INTO wallets (user_id) VALUES ($1)"
 
 	if _, err := repo.db.Exec(query, id); err != nil {
-		fmt.Println(err)
 		return errors.New("fail to create wallet")
 	}
 
@@ -204,10 +217,14 @@ func (repo *userRepository) UserWalletCreate(id string) (err error) {
 }
 
 func (repo *userRepository) GetDataUserRepo(id string) (resp userDto.UserGetDataResponse, err error) {
-
+	var images sql.NullString
 	query := "SELECT fullname, username, email, phone_number, image_url FROM users WHERE id = $1;"
-	if err := repo.db.QueryRow(query, id).Scan(&resp.Fullname, &resp.Username, &resp.Email, &resp.PhoneNumber, &resp.ProfilImages); err != nil {
+	if err := repo.db.QueryRow(query, id).Scan(&resp.Fullname, &resp.Username, &resp.Email, &resp.PhoneNumber, &images); err != nil {
 		return resp, errors.New("fail to get data db")
+	}
+
+	if images.Valid {
+		resp.ProfilImages = images.String
 	}
 
 	return resp, nil
@@ -286,7 +303,6 @@ func (repo *userRepository) GetTotalDataCount(params userDto.GetTransactionParam
       ) AS subquery
    `
 
-	// Eksekusi query dan memindai hasilnya ke totalData
 	if err := repo.db.QueryRow(query, args...).Scan(&totalData); err != nil {
 		return 0, fmt.Errorf("fail to get total data count: %w", err)
 	}
@@ -534,14 +550,12 @@ func (repo *userRepository) PaymentGateway(payload userDto.MidtransSnapReq) (use
 	resp, err := repo.client.R().SetHeader("Authorization", "Basic "+encodeKey).SetBody(payload).Post(url)
 
 	if err != nil {
-		fmt.Println("Error payment: ", err.Error())
 		return userDto.MidtransSnapResp{}, err
 	}
 
 	var snapResp userDto.MidtransSnapResp
 	err = json.Unmarshal(resp.Body(), &snapResp)
 	if err != nil {
-		fmt.Println("Error encode json: ", err.Error())
 		return userDto.MidtransSnapResp{}, err
 	}
 
@@ -570,7 +584,7 @@ func (repo *userRepository) UpdateTransactionStatus(orderID string, status strin
 	query := `UPDATE transactions SET status = $1 WHERE id = $2`
 	_, err := repo.db.Exec(query, status, orderID)
 	if err != nil {
-		fmt.Println("Error updating transaction status:", err)
+		return errors.New("failed to update transaction status")
 	}
 
 	return err
@@ -586,7 +600,6 @@ func (repo *userRepository) UpdateBalance(orderID, amountStr string) error {
 	query := `SELECT user_id FROM transactions WHERE id = $1`
 	err = repo.db.QueryRow(query, orderID).Scan(&userID)
 	if err != nil {
-		fmt.Println("Error finding user_id from transactions:", err)
 		return err
 	}
 
@@ -594,14 +607,12 @@ func (repo *userRepository) UpdateBalance(orderID, amountStr string) error {
 	query = `SELECT id FROM wallets WHERE user_id = $1`
 	err = repo.db.QueryRow(query, userID).Scan(&walletID)
 	if err != nil {
-		fmt.Println("Error finding wallet_id from wallets:", err)
 		return err
 	}
 
 	query = `UPDATE wallets SET balance = balance + $1 WHERE id = $2`
 	_, err = repo.db.Exec(query, amount, walletID)
 	if err != nil {
-		fmt.Println("Error updating wallet balance:", err)
 		return err
 	}
 
@@ -630,11 +641,11 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	getRecipientWalletIdQuery := `
-        SELECT w.id 
-        FROM wallets w
-        JOIN users u ON u.id = w.user_id
-        WHERE u.phone_number = $1
-    `
+      SELECT w.id 
+      FROM wallets w
+      JOIN users u ON u.id = w.user_id
+      WHERE u.phone_number = $1
+   `
 	err = tx.QueryRow(getRecipientWalletIdQuery, req.RecipientPhoneNumber).Scan(&req.ToWalletId)
 	if err != nil {
 		tx.Rollback()
@@ -667,10 +678,10 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	transactionQuery := `
-        INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
-        VALUES ($1, 'debit', $2, $3, $4, 'success')
-        RETURNING id
-    `
+      INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
+      VALUES ($1, 'debit', $2, $3, $4, 'success')
+      RETURNING id
+   `
 	var transactionID string
 	err = tx.QueryRow(transactionQuery, req.UserId, req.Amount, req.Description, time.Now()).Scan(&transactionID)
 	if err != nil {
@@ -679,9 +690,9 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	walletTransactionQuery := `
-        INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
-        VALUES ($1, $2, $3, $4)
-    `
+      INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
+      VALUES ($1, $2, $3, $4)
+   `
 	_, err = tx.Exec(walletTransactionQuery, transactionID, req.FromWalletId, req.ToWalletId, time.Now())
 	if err != nil {
 		tx.Rollback()
@@ -691,10 +702,10 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	currentTime := time.Now()
 
 	updateSenderBalanceQuery := `
-        UPDATE wallets
-        SET balance = balance - $1, updated_at = $2
-        WHERE id = $3 AND balance >= $1
-    `
+      UPDATE wallets
+      SET balance = balance - $1, updated_at = $2
+      WHERE id = $3 AND balance >= $1
+   `
 
 	res, err := tx.Exec(updateSenderBalanceQuery, amount, currentTime, req.FromWalletId)
 	if err != nil {
@@ -714,10 +725,10 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	updateRecipientBalanceQuery := `
-        UPDATE wallets
-        SET balance = balance + $1, updated_at = $2
-        WHERE id = $3
-    `
+      UPDATE wallets
+      SET balance = balance + $1, updated_at = $2
+      WHERE id = $3
+   `
 	_, err = tx.Exec(updateRecipientBalanceQuery, amount, currentTime, req.ToWalletId)
 	if err != nil {
 		tx.Rollback()

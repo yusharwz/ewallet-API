@@ -9,7 +9,7 @@ CREATE TABLE users (
     email VARCHAR(50) NOT NULL UNIQUE,
     verification_code VARCHAR(35),
     expired_code TIMESTAMP WITHOUT TIME ZONE,
-    phone_number VARCHAR(17) NOT NULL,
+    phone_number VARCHAR(17) NOT NULL UNIQUE,
     roles VARCHAR(25) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'inactive',
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,

@@ -6,7 +6,6 @@ import (
 	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/pkg/validation"
 	"final-project-enigma/src/user"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -138,6 +137,7 @@ func (u *userDelivery) activatedAccount(ctx *gin.Context) {
 	req.Email = ctx.Query("email")
 	req.Fullname = ctx.Query("fullname")
 	req.Unique = ctx.Query("unique")
+	req.Code = ctx.Query("code")
 
 	err := u.userUC.ActivaedAccount(req)
 	if err != nil {
@@ -165,13 +165,11 @@ func (u *userDelivery) uploadProfilImage(ctx *gin.Context) {
 	authHeader := ctx.GetHeader("Authorization")
 	fileHeader, err := ctx.FormFile("image")
 	if err != nil {
-		fmt.Println(err)
 		json.NewResponseError(ctx, "failed to get file", "02", "02")
 		return
 	}
 	file, err := fileHeader.Open()
 	if err != nil {
-		fmt.Println(err)
 		json.NewResponseError(ctx, "failed to open file", "02", "02")
 		return
 	}
@@ -211,7 +209,6 @@ func (u *userDelivery) getTransactionsDetail(ctx *gin.Context) {
 
 	resp, totalData, err := u.userUC.GetTransactionUC(authHeader, params)
 	if err != nil {
-		fmt.Println(err)
 		json.NewResponseError(ctx, "failed to get transaction data", "02", "02")
 		return
 	}
@@ -275,10 +272,10 @@ func (u *userDelivery) midtransStatusRequest(ctx *gin.Context) {
 		json.NewResponseError(ctx, err.Error(), "01", "01")
 		return
 	}
-	json.NewResponSucces(ctx, "PaymentSucces", "create transaction succes", "01", "01")
+	json.NewResponSucces(ctx, nil, "create transaction succes", "01", "01")
 }
 
 func (u *userDelivery) midtransStatusRequestGet(ctx *gin.Context) {
 
-	json.NewResponSucces(ctx, "PaymentSucces", "create transaction succes", "01", "01")
+	json.NewResponSucces(ctx, "PaymentSucces", "", "01", "01")
 }

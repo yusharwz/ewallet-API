@@ -49,6 +49,7 @@ type (
 		Email    string
 		Fullname string
 		Unique   string
+		Code     string
 	}
 
 	UserCreateResponse struct {
@@ -119,7 +120,7 @@ type (
 		ToWalletId           string `json:"toWalletId"`
 		RecipientPhoneNumber string `json:"recipientPhoneNumber" binding:"required"`
 		Amount               string `json:"amount" binding:"required,min=5"`
-		PIN                  string `json:"pin" binding:"required,pin,min=6, max=6"`
+		PIN                  string `json:"pin" binding:"required,pin"`
 		Description          string `json:"description"`
 	}
 

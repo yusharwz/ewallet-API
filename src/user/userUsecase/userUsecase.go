@@ -10,7 +10,6 @@ import (
 	"final-project-enigma/pkg/sendEmail"
 	"final-project-enigma/pkg/sendWhatappTwilio"
 	"final-project-enigma/src/user"
-	"fmt"
 	"strconv"
 )
 
@@ -25,24 +24,25 @@ func NewUserUsecase(userRepo user.UserRepository) user.UserUsecase {
 func (usecase *userUC) LoginCodeReqEmail(email string) error {
 	result, err := usecase.userRepo.CekEmail(email)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
 	if !result {
-		fmt.Println(err)
 		return err
 	}
 
-	code := generateCode.GenerateCode()
+	code, err := generateCode.GenerateCode()
+	if err != nil {
+		return err
+	}
 
 	var pnumber string
 	respInsertCode, err := usecase.userRepo.InsertCode(code, email, pnumber)
 	if err != nil {
-		return errors.New("failed to insert code")
+		return err
 	}
 	if !respInsertCode {
-		return errors.New("failed to insert code")
+		return err
 	}
 
 	emailResp, err := sendEmail.SendEmail(email, code)
@@ -67,25 +67,28 @@ func (usecase *userUC) LoginCodeReqSMS(pnumber string) error {
 		return err
 	}
 
-	code := generateCode.GenerateCode()
+	code, err := generateCode.GenerateCode()
+	if err != nil {
+		return err
+	}
 
 	var email string
 	respInsertCode, err := usecase.userRepo.InsertCode(code, email, pnumber)
 	if err != nil {
-		return errors.New("fail to insert code")
+		return err
 	}
 	if !respInsertCode {
-		return errors.New("fail to insert code")
+		return err
 	}
 
 	emailResp, err := sendWhatappTwilio.SendWhatsAppMessage(pnumber, code)
 
 	if err != nil {
-		return errors.New("fail to send email")
+		return err
 	}
 
 	if !emailResp {
-		return errors.New("fail to send email")
+		return err
 	}
 
 	return nil
@@ -155,7 +158,21 @@ func (usecase *userUC) CreateReq(req userDto.UserCreateRequest) (resp userDto.Us
 		return resp, err
 	}
 
-	err = sendEmail.SendEmailActivedAccount(resp.Email, resp.Username, unique)
+	code, err := generateCode.GenerateCode()
+	if err != nil {
+		return resp, err
+	}
+
+	var pnumber string
+	respInsertCode, err := usecase.userRepo.InsertCode(code, resp.Email, pnumber)
+	if err != nil {
+		return resp, err
+	}
+	if !respInsertCode {
+		return resp, err
+	}
+
+	err = sendEmail.SendEmailActivedAccount(resp.Email, resp.Username, code, unique)
 	if err != nil {
 		return resp, err
 	}
@@ -179,8 +196,8 @@ func (usecase *userUC) GetDataUserUC(authHeader string) (resp userDto.UserGetDat
 	if err != nil {
 		return resp, err
 	}
-
 	resp, err = usecase.userRepo.GetDataUserRepo(id)
+
 	if err != nil {
 		return resp, err
 	}
@@ -199,7 +216,6 @@ func (usecase *userUC) GetBalanceInfoUC(authHeader string) (resp userDto.UserGet
 	if err != nil {
 		return resp, err
 	}
-	fmt.Println(resp.Balance)
 	return resp, nil
 }
 
