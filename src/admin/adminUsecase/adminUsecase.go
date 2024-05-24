@@ -2,7 +2,6 @@ package adminUsecase
 
 import (
 	"final-project-enigma/model/dto/adminDto"
-	"final-project-enigma/model/dto/userDto"
 	"final-project-enigma/pkg/hashingPassword"
 	"final-project-enigma/src/admin"
 )
@@ -96,26 +95,4 @@ func (u *adminUC) UpdatePaymentMethod(request adminDto.UpdatePaymentRequest) err
 	}
 
 	return nil
-}
-
-func (u *adminUC) CreateReq(req userDto.UserCreateRequest) (resp userDto.UserCreateResponse, err error) {
-
-	hashedPin, err := hashingPassword.HashPassword(req.Pin)
-	if err != nil {
-		return resp, err
-	}
-
-	req.Pin = hashedPin
-
-	resp, err = u.adminRepo.UserCreate(req)
-	if err != nil {
-		return resp, err
-	}
-
-	err = u.adminRepo.UserWalletCreate(resp.Id)
-	if err != nil {
-		return resp, err
-	}
-
-	return resp, nil
 }

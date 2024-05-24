@@ -6,9 +6,13 @@ type (
 	GetUserParams struct {
 		ID          string `json:"id"`
 		Fullname    string `json:"fullname"`
+		Username    string `json:"username"`
 		Email       string `json:"email"`
 		PhoneNumber string `json:"phoneNumber"`
-		CreateAt    string `json:"createAt"`
+		Roles       string `json:"roles"`
+		Status      string `json:"status"`
+		StartDate   string `json:"satrtDate"`
+		EndDate     string `json:"endDate"`
 		Page        string `json:"page"`
 		Limit       string `json:"limit"`
 	}
@@ -18,16 +22,12 @@ type (
 		Username    string    `json:"username"`
 		Pin         string    `json:"pin"`
 		Email       string    `json:"email"`
+		ImageURL    string    `json:"image_url"`
+		Roles       string    `json:"roles"`
+		Status      string    `json:"status"`
 		PhoneNumber string    `json:"phoneNumber"`
 		CreatedAt   time.Time `json:"createdAt"`
 		UpdatedAt   time.Time `json:"updatedAt"`
-	}
-	UserCreateRequest struct {
-		Fullname    string `json:"fullname" binding:"required"`
-		Username    string `json:"username" binding:"required"`
-		Email       string `json:"email" binding:"required,email"`
-		Pin         string `json:"pin" binding:"required,password"`
-		PhoneNumber string `json:"phone_number" binding:"required,nomorHp"`
 	}
 	UserUpdateRequest struct {
 		ID          string `json:"id"`
@@ -54,6 +54,8 @@ type (
 	GetWalletParams struct {
 		ID         string   `json:"id"`
 		User_id    string   `json:"user_id"`
+		Fullname   string   `json:"fullname"`
+		Username   string   `json:"username"`
 		MinBalance *float64 `json:"min_balance"`
 		MaxBalance *float64 `json:"max_balance"`
 		CreatedAt  string   `json:"createdAt"`
@@ -61,8 +63,11 @@ type (
 		Limit      string   `json:"limit"`
 	}
 	Wallet struct {
-		ID        string    `json:"id"`
-		User_id   string    `json:"user_id"`
+		ID       string `json:"id"`
+		User_id  string `json:"user_id"`
+		Fullname string `json:"fullname"`
+		Username string `json:"username"`
+
 		Balance   string    `json:"balance"`
 		CreatedAt time.Time `json:"createdAt"`
 		UpdatedAt time.Time `json:"updatedAt"`

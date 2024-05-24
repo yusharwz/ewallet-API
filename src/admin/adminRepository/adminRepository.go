@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"final-project-enigma/model/dto/adminDto"
-	"final-project-enigma/model/dto/userDto"
 	"time"
 
 	"fmt"
@@ -16,53 +15,71 @@ type adminRepo struct {
 }
 
 func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.User, error) {
-	query := "SELECT id, fullname, username, email, phone_number, created_at FROM users WHERE 1=1 AND deleted_at IS NULL"
-	var args []interface{}
-	argIndex := 1
+	query := "SELECT id, fullname, username, image_url, pin, email, phone_number, roles, status, created_at FROM users WHERE deleted_at IS NULL"
+	args := []interface{}{}
 
 	if params.ID != "" {
-		query += fmt.Sprintf(" AND id = $%d", argIndex)
+		query += " AND id = $1"
 		args = append(args, params.ID)
-		argIndex++
 	}
 
 	if params.Fullname != "" {
-		query += fmt.Sprintf(" AND fullname LIKE $%d", argIndex)
+		query += " AND fullname LIKE $" + strconv.Itoa(len(args)+1)
 		args = append(args, "%"+params.Fullname+"%")
-		argIndex++
+	}
+
+	if params.Username != "" {
+		query += " AND username = $" + strconv.Itoa(len(args)+1)
+		args = append(args, params.Username)
 	}
 
 	if params.Email != "" {
-		query += fmt.Sprintf(" AND email = $%d", argIndex)
+		query += " AND email = $" + strconv.Itoa(len(args)+1)
 		args = append(args, params.Email)
-		argIndex++
 	}
 
 	if params.PhoneNumber != "" {
-		query += fmt.Sprintf(" AND phone_number = $%d", argIndex)
+		query += " AND phone_number = $" + strconv.Itoa(len(args)+1)
 		args = append(args, params.PhoneNumber)
-		argIndex++
 	}
 
-	if params.CreateAt != "" {
-		query += fmt.Sprintf(" AND created_at = $%d", argIndex)
-		args = append(args, params.CreateAt)
-		argIndex++
+	if params.Roles != "" {
+		query += " AND roles = $" + strconv.Itoa(len(args)+1)
+		args = append(args, params.Roles)
 	}
+
+	if params.Status != "" {
+		query += " AND status = $" + strconv.Itoa(len(args)+1)
+		args = append(args, params.Status)
+	}
+
+	if params.StartDate != "" && params.EndDate != "" {
+		startDate, err := time.Parse("2006-01-02", params.StartDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid start date format: %s", err.Error())
+		}
+		endDate, err := time.Parse("2006-01-02", params.EndDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid end date format: %s", err.Error())
+		}
+		query += " AND created_at BETWEEN $" + strconv.Itoa(len(args)+1) + " AND $" + strconv.Itoa(len(args)+2)
+		args = append(args, startDate, endDate)
+	}
+
 	if params.Page != "" && params.Limit != "" {
 		page, err := strconv.Atoi(params.Page)
 		if err != nil {
-			return nil, fmt.Errorf("invalid page parameter")
+			return nil, fmt.Errorf("invalid page parameter: %s", err.Error())
 		}
 		limit, err := strconv.Atoi(params.Limit)
 		if err != nil {
-			return nil, fmt.Errorf("invalid limit parameter")
+			return nil, fmt.Errorf("invalid limit parameter: %s", err.Error())
 		}
 		offset := (page - 1) * limit
-		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+		query += " LIMIT $" + strconv.Itoa(len(args)+1) + " OFFSET $" + strconv.Itoa(len(args)+2)
 		args = append(args, limit, offset)
-		argIndex += 2
 	}
+
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
@@ -72,11 +89,27 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	var users []adminDto.User
 	for rows.Next() {
 		var user adminDto.User
-		err := rows.Scan(&user.ID, &user.Fullname, &user.Username, &user.Email, &user.PhoneNumber, &user.CreatedAt)
+		err := rows.Scan(&user.ID, &user.Fullname, &user.Username, &user.ImageURL, &user.Pin, &user.Email, &user.PhoneNumber, &user.Roles, &user.Status, &user.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
 		users = append(users, user)
+	}
+
+	if params.Username != "" && len(users) == 0 {
+		return nil, fmt.Errorf("user with username '%s' not found", params.Username)
+	}
+
+	if params.Email != "" && len(users) == 0 {
+		return nil, fmt.Errorf("user with email '%s' not found", params.Email)
+	}
+
+	if params.PhoneNumber != "" && len(users) == 0 {
+		return nil, fmt.Errorf("user with phone number '%s' not found", params.PhoneNumber)
+	}
+
+	if params.ID != "" && len(users) == 0 {
+		return nil, fmt.Errorf("user with ID '%s' not found", params.ID)
 	}
 
 	return users, nil
@@ -98,12 +131,10 @@ func (r *adminRepo) SoftDeleteUser(userID string) error {
 	return nil
 }
 func (r *adminRepo) UpdateUser(user adminDto.User) error {
-	// Check if the user ID is valid
 	if user.ID == "" {
 		return errors.New("invalid user ID")
 	}
 
-	// Check if the user exists
 	var userExists bool
 	userQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1 AND deleted_at IS NULL)"
 	err := r.db.QueryRow(userQuery, user.ID).Scan(&userExists)
@@ -113,8 +144,15 @@ func (r *adminRepo) UpdateUser(user adminDto.User) error {
 	if !userExists {
 		return errors.New("user does not exist")
 	}
-
-	// Check if email already exists for another user
+	var usernameExists bool
+	usernameQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 AND id <> $2 AND deleted_at IS NULL)"
+	err = r.db.QueryRow(usernameQuery, user.Username, user.ID).Scan(&usernameExists)
+	if err != nil {
+		return fmt.Errorf("failed to check username existence: %w", err)
+	}
+	if usernameExists {
+		return errors.New("username already exists for another user")
+	}
 	var emailExists bool
 	emailQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id <> $2 AND deleted_at IS NULL)"
 	err = r.db.QueryRow(emailQuery, user.Email, user.ID).Scan(&emailExists)
@@ -124,8 +162,6 @@ func (r *adminRepo) UpdateUser(user adminDto.User) error {
 	if emailExists {
 		return errors.New("email already exists for another user")
 	}
-
-	// Check if phone number already exists for another user
 	var phoneNumberExists bool
 	phoneQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE phone_number = $1 AND id <> $2 AND deleted_at IS NULL)"
 	err = r.db.QueryRow(phoneQuery, user.PhoneNumber, user.ID).Scan(&phoneNumberExists)
@@ -135,11 +171,9 @@ func (r *adminRepo) UpdateUser(user adminDto.User) error {
 	if phoneNumberExists {
 		return errors.New("phone number already exists for another user")
 	}
-
-	// Update the user
 	query := `
-        UPDATE users 
-        SET fullname = $1, username = $2, email = $3, phone_number = $4, pin = $5, updated_at = $6 
+        UPDATE users
+        SET fullname = $1, username = $2, email = $3, phone_number = $4, pin = $5, updated_at = $6
         WHERE id = $7 AND deleted_at IS NULL`
 	result, err := r.db.Exec(query, user.Fullname, user.Username, user.Email, user.PhoneNumber, user.Pin, time.Now(), user.ID)
 	if err != nil {
@@ -205,6 +239,13 @@ func (r *adminRepo) GetpaymentMethodByParams(params adminDto.GetpaymentMethodPar
 			return nil, err
 		}
 		paymentMethods = append(paymentMethods, paymentMethod)
+	}
+	if params.ID != "" && len(paymentMethods) == 0 {
+		return nil, fmt.Errorf("payment with id '%s' not found", params.ID)
+	}
+
+	if params.PaymentName != "" && len(paymentMethods) == 0 {
+		return nil, fmt.Errorf("payment with name '%s' not found", params.PaymentName)
 	}
 
 	return paymentMethods, nil
@@ -273,34 +314,50 @@ func (r *adminRepo) UpdatePaymentMethod(paymentMethod adminDto.PaymentMethod) er
 	return nil
 }
 func (r *adminRepo) GetWalletByParams(params adminDto.GetWalletParams) ([]adminDto.Wallet, error) {
-	query := "SELECT id,user_id, balance,created_at FROM wallets WHERE 1=1"
+	query := `
+	SELECT w.id, w.user_id, w.balance, w.created_at, u.fullname, u.username
+	FROM wallets w
+	JOIN users u ON w.user_id = u.id
+	WHERE 1=1`
+
 	var args []interface{}
 	argIndex := 1
 
 	if params.ID != "" {
-		query += fmt.Sprintf(" AND id = $%d", argIndex)
+		query += fmt.Sprintf(" AND w.id = $%d", argIndex)
 		args = append(args, params.ID)
 		argIndex++
 	}
 
 	if params.User_id != "" {
-		query += fmt.Sprintf(" AND user_id = $%d", argIndex)
+		query += fmt.Sprintf(" AND w.user_id = $%d", argIndex)
 		args = append(args, params.User_id)
 		argIndex++
 	}
+	if params.Fullname != "" {
+		query += fmt.Sprintf(" AND u.fullname ILIKE $%d", argIndex)
+		args = append(args, "%"+params.Fullname+"%")
+		argIndex++
+	}
+	if params.Username != "" {
+		query += fmt.Sprintf(" AND u.username ILIKE $%d", argIndex)
+		args = append(args, "%"+params.Username+"%")
+		argIndex++
+	}
 	if params.MinBalance != nil {
-		query += fmt.Sprintf(" AND balance >= $%d", argIndex)
+		query += fmt.Sprintf(" AND w.balance >= $%d", argIndex)
 		args = append(args, params.MinBalance)
 		argIndex++
 	}
 
 	if params.MaxBalance != nil {
-		query += fmt.Sprintf(" AND balance <= $%d", argIndex)
+		query += fmt.Sprintf(" AND w.balance <= $%d", argIndex)
 		args = append(args, params.MaxBalance)
 		argIndex++
 	}
+
 	if params.CreatedAt != "" {
-		query += fmt.Sprintf(" AND created_at = $%d", argIndex)
+		query += fmt.Sprintf(" AND w.created_at = $%d", argIndex)
 		args = append(args, params.CreatedAt)
 		argIndex++
 	}
@@ -318,6 +375,7 @@ func (r *adminRepo) GetWalletByParams(params adminDto.GetWalletParams) ([]adminD
 		args = append(args, limit, offset)
 		argIndex += 2
 	}
+
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
@@ -327,68 +385,29 @@ func (r *adminRepo) GetWalletByParams(params adminDto.GetWalletParams) ([]adminD
 	var wallets []adminDto.Wallet
 	for rows.Next() {
 		var wallet adminDto.Wallet
-		err := rows.Scan(&wallet.ID, &wallet.User_id, &wallet.Balance, &wallet.CreatedAt)
+		err := rows.Scan(&wallet.ID, &wallet.User_id, &wallet.Balance, &wallet.CreatedAt, &wallet.Fullname, &wallet.Username)
 		if err != nil {
 			return nil, err
 		}
 		wallets = append(wallets, wallet)
 	}
+	if params.Username != "" && len(wallets) == 0 {
+		return nil, fmt.Errorf("wallets with username '%s' not found", params.Username)
+	}
 
+	if params.Fullname != "" && len(wallets) == 0 {
+		return nil, fmt.Errorf("wallets with email '%s' not found", params.Fullname)
+	}
+
+	if params.ID != "" && len(wallets) == 0 {
+		return nil, fmt.Errorf("wallets with ID '%s' not found", params.ID)
+	}
+	if params.User_id != "" && len(wallets) == 0 {
+		return nil, fmt.Errorf("walets with user ID '%s' not found", params.User_id)
+	}
 	return wallets, nil
 }
 
-func (r *adminRepo) UserCreate(req userDto.UserCreateRequest) (resp userDto.UserCreateResponse, err error) {
-	var usernameExists bool
-	usernameQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)"
-	err := r.db.QueryRow(usernameQuery, user.Username).Scan(&usernameExists)
-	if err != nil {
-		return err
-	}
-	if usernameExists {
-		return errors.New("username already exists")
-	}
-
-	// Check if email already exists
-	var emailExists bool
-	emailQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"
-	err = r.db.QueryRow(emailQuery, user.Email).Scan(&emailExists)
-	if err != nil {
-		return err
-	}
-	if emailExists {
-		return errors.New("email already exists")
-	}
-
-	// Check if phone number already exists
-	var phoneNumberExists bool
-	phoneQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE phone_number = $1)"
-	err = r.db.QueryRow(phoneQuery, user.PhoneNumber).Scan(&phoneNumberExists)
-	if err != nil {
-		return err
-	}
-	if phoneNumberExists {
-		return errors.New("phone number already exists")
-	}
-	query := "INSERT INTO users (fullname, username, email, pin, phone_number) VALUES ($1, $2, $3, $4, $5) RETURNING id, fullname, username, email, phone_number"
-
-	if err := r.db.QueryRow(query, req.Fullname, req.Username, req.Email, req.Pin, req.PhoneNumber).Scan(&resp.Id, &resp.Fullname, &resp.Username, &resp.Email, &resp.PhoneNumber); err != nil {
-		fmt.Println(err)
-		return resp, errors.New("fail to create user")
-	}
-
-	return resp, nil
-}
-
-func (r *adminRepo) UserWalletCreate(id string) (err error) {
-	query := "INSERT INTO wallets (user_id) VALUES ($1)"
-
-	if _, err := r.db.Exec(query, id); err != nil {
-		fmt.Println(err)
-		return errors.New("fail to create wallet")
-	}
-
-	return nil
-}
 func NewAdminRepository(db *sql.DB) *adminRepo {
 	return &adminRepo{db}
 }
