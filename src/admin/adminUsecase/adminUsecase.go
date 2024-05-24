@@ -2,7 +2,7 @@ package adminUsecase
 
 import (
 	"final-project-enigma/model/dto/adminDto"
-	"final-project-enigma/pkg/hashingPassword"
+	"final-project-enigma/pkg/helper/hashingPassword"
 	"final-project-enigma/src/admin"
 )
 
