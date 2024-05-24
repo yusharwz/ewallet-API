@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	"github.com/go-resty/resty/v2"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -75,12 +76,12 @@ func InitEnv() (dto.ConfigData, error) {
 	return configData, nil
 }
 
-func initializeDomainModule(r *gin.Engine, db *sql.DB) {
+func initializeDomainModule(r *gin.Engine, db *sql.DB, client *resty.Client) {
 	apiGroup := r.Group("/api")
 	v1Group := apiGroup.Group("/v1")
 
 	// checkHealth
-	router.InitRoute(v1Group, db)
+	router.InitRoute(v1Group, db, client)
 }
 
 func RunService() {
@@ -143,6 +144,8 @@ func RunService() {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterValidation("password", validation.ValidatePassword)
 		v.RegisterValidation("nomorHp", validation.ValidateNoHp)
+		v.RegisterValidation("username", validation.ValidateUsername)
+		v.RegisterValidation("pin", validation.ValidatePIN)
 	}
 
 	r.Use(logger.SetLogger(
@@ -153,7 +156,9 @@ func RunService() {
 
 	r.Use(gin.Recovery())
 
-	initializeDomainModule(r, conn)
+	client := resty.New()
+
+	initializeDomainModule(r, conn, client)
 
 	version := "0.0.1"
 	log.Info().Msg(fmt.Sprintf("Service Running version %s", version))

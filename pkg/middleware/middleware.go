@@ -37,12 +37,13 @@ var (
 	jwtSignatureKey  = []byte("incubation-golang")
 )
 
-func GenerateTokenJwt(Id string, username string, expiredAt int64) (string, error) {
+func GenerateTokenJwt(Id, username, roles string, expiredAt int64) (string, error) {
 	loginExpDuration := time.Duration(expiredAt) * time.Hour
 	myExpiresAt := time.Now().Add(loginExpDuration).Unix()
 	claims := dto.JwtClaim{
 		Id:       Id,
 		Username: username,
+		Roles:    roles,
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    applicationName,
 			ExpiresAt: myExpiresAt,
