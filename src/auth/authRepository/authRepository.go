@@ -18,42 +18,32 @@ func NewAuthRepository(db *sql.DB) auth.AuthRepository {
 	}
 }
 
-func (repo *authRepository) CekEmail(email string) (bool, error) {
-	var result string
-	query := "SELECT status FROM users WHERE email = $1"
+func (repo *authRepository) CekEmail(email string) (resp userDto.ForgetPinResp, err error) {
+	query := "SELECT email, username, pin, status FROM users WHERE email = $1"
 
-	err := repo.db.QueryRow(query, email).Scan(&result)
+	err = repo.db.QueryRow(query, email).Scan(&resp.Email, &resp.Username, &resp.Unique, &resp.Status)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return false, errors.New("email not registered")
+			return userDto.ForgetPinResp{}, errors.New("email not registered")
 		}
-		return false, err
+		return userDto.ForgetPinResp{}, err
 	}
 
-	if result != "active" {
-		return false, errors.New("account has not been activated, please check the email inbox for the activation link")
-	}
-
-	return true, nil
+	return resp, nil
 }
 
-func (repo *authRepository) CekPhoneNumber(pnumber string) (bool, error) {
-	var result string
-	query := "SELECT status FROM users WHERE phone_number = $1"
+func (repo *authRepository) CekPhoneNumber(pnumber string) (resp userDto.ForgetPinResp, err error) {
+	query := "SELECT email, username, pin, status FROM users WHERE phone_number = $1"
 
-	err := repo.db.QueryRow(query, pnumber).Scan(&result)
+	err = repo.db.QueryRow(query, pnumber).Scan(&resp.Email, &resp.Username, &resp.Unique, &resp.Status)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return false, errors.New("phone number not registered")
+			return userDto.ForgetPinResp{}, errors.New("phone number not registered")
 		}
-		return false, err
+		return userDto.ForgetPinResp{}, err
 	}
 
-	if result != "active" {
-		return false, errors.New("account has not been activated, please check the email inbox for the activation link")
-	}
-
-	return true, nil
+	return resp, nil
 }
 
 func (repo *authRepository) InsertCode(code, email, pnumber string) (bool, error) {
@@ -80,9 +70,17 @@ func (repo *authRepository) InsertCode(code, email, pnumber string) (bool, error
 
 func (repo *authRepository) UserLogin(req userDto.UserLoginRequest) (resp userDto.UserLoginResponse, err error) {
 	var expiredCode time.Time
+	var count int
+	queryCount := "SELECT COUNT(*) FROM users WHERE email = $1"
+	if err := repo.db.QueryRow(queryCount, req.Email).Scan(&count); err != nil {
+		return resp, err
+	}
+	if count == 0 {
+		return resp, errors.New("email not registered")
+	}
 
-	query := "SELECT id, email, pin, expired_code, roles, status FROM users WHERE phone_number = $1 AND verification_code = $2"
-	if err := repo.db.QueryRow(query, req.PhoneNumber, req.Code).Scan(&resp.UserId, &resp.UserEmail, &resp.Pin, &expiredCode, &resp.Roles, &resp.Status); err != nil {
+	query := "SELECT id, email, pin, expired_code, roles, status FROM users WHERE email = $1 AND verification_code = $2"
+	if err := repo.db.QueryRow(query, req.Email, req.Code).Scan(&resp.UserId, &resp.UserEmail, &resp.Pin, &expiredCode, &resp.Roles, &resp.Status); err != nil {
 		return resp, errors.New("invalid pin or verification code")
 	}
 
@@ -177,11 +175,11 @@ func (repo *authRepository) ActivedAccount(req userDto.ActivatedAccountReq) (err
 	return nil
 }
 
-func (repo *authRepository) SendLinkForgetPin(req userDto.FogetPinReq) (resp userDto.FogetPinResp, err error) {
+func (repo *authRepository) SendLinkForgetPin(req userDto.ForgetPinReq) (resp userDto.ForgetPinResp, err error) {
 
 	queryCheckEmail := `SELECT email, username, verification_code, pin FROM users WHERE email = $1 AND phone_number = $2`
 	if err := repo.db.QueryRow(queryCheckEmail, req.Email, req.PhoneNumber).Scan(&resp.Email, &resp.Username, &resp.Code, &resp.Unique); err != nil {
-		return userDto.FogetPinResp{}, errors.New("invalid email or phone number")
+		return userDto.ForgetPinResp{}, errors.New("invalid email or phone number")
 	}
 	return resp, nil
 }

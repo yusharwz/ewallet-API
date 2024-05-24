@@ -17,6 +17,37 @@ func NewUserUsecase(userRepo user.UserRepository) user.UserUsecase {
 	return &userUC{userRepo}
 }
 
+func (usecase *userUC) EditDataUserUC(authHeader string, req userDto.UserUpdateReq) error {
+
+	userId, err := middleware.GetIdFromToken(authHeader)
+	if err != nil {
+		return err
+	}
+
+	req.UserId = userId
+
+	currentUserData, err := usecase.userRepo.GetDataUserRepo(req.UserId)
+	if err != nil {
+		return err
+	}
+
+	if req.Fullname == "" {
+		req.Fullname = currentUserData.Fullname
+	}
+	if req.Email == "" {
+		req.Email = currentUserData.Email
+	}
+	if req.PhoneNumber == "" {
+		req.PhoneNumber = currentUserData.PhoneNumber
+	}
+
+	if err := usecase.userRepo.EditUserData(req); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (usecase *userUC) UploadImagesRequestUC(authHeader string, file userDto.UploadImagesRequest) error {
 
 	userId, err := middleware.GetIdFromToken(authHeader)

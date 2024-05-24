@@ -30,6 +30,46 @@ func NewUserRepository(db *sql.DB, client *resty.Client) user.UserRepository {
 	}
 }
 
+func (repo *userRepository) EditUserData(req userDto.UserUpdateReq) error {
+
+	emailCheckQuery := `
+		SELECT COUNT(*) 
+		FROM users 
+		WHERE email = $1 AND id != $2
+	`
+	var emailCount int
+	if err := repo.db.QueryRow(emailCheckQuery, req.Email, req.UserId).Scan(&emailCount); err != nil {
+		return errors.New("failed to check email")
+	}
+	if emailCount > 0 {
+		return errors.New("email is already in use")
+	}
+
+	phoneCheckQuery := `
+		SELECT COUNT(*) 
+		FROM users 
+		WHERE phone_number = $1 AND id != $2
+	`
+	var phoneCount int
+	if err := repo.db.QueryRow(phoneCheckQuery, req.PhoneNumber, req.UserId).Scan(&phoneCount); err != nil {
+		return errors.New("failed to check phone number")
+	}
+	if phoneCount > 0 {
+		return errors.New("phone number is already in use")
+	}
+
+	updateQuery := `
+		UPDATE users
+		SET fullname = $1, email = $2, phone_number = $3
+		WHERE id = $4
+	`
+	if _, err := repo.db.Exec(updateQuery, req.Fullname, req.Email, req.PhoneNumber, req.UserId); err != nil {
+		return errors.New("failed to update user")
+	}
+
+	return nil
+}
+
 func (repo *userRepository) UserUploadImage(req userDto.UploadImagesRequest) (userDto.UploadImagesResponse, error) {
 
 	cldService, _ := cloudinary.NewFromURL(os.Getenv("CLOUDINARY_URL"))

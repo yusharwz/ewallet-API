@@ -21,13 +21,30 @@ func NewAuthUsecase(authRepo auth.AuthRepository) auth.AuthUsecase {
 }
 
 func (usecase *authUC) LoginCodeReqEmail(email string) error {
-	result, err := usecase.authRepo.CekEmail(email)
+	resp, err := usecase.authRepo.CekEmail(email)
 	if err != nil {
 		return err
 	}
+	if resp.Status != "active" {
+		code, err := generateCode.GenerateCode()
+		if err != nil {
+			return err
+		}
 
-	if !result {
-		return err
+		var pnumber string
+		respInsertCode, err := usecase.authRepo.InsertCode(code, resp.Email, pnumber)
+		if err != nil {
+			return err
+		}
+		if !respInsertCode {
+			return err
+		}
+
+		err = sendEmail.SendEmailActivedAccount(resp.Email, resp.Username, code, resp.Unique)
+		if err != nil {
+			return err
+		}
+		return errors.New("account has not been activated, please check the email inbox for the activation link")
 	}
 
 	code, err := generateCode.GenerateCode()
@@ -57,13 +74,31 @@ func (usecase *authUC) LoginCodeReqEmail(email string) error {
 }
 
 func (usecase *authUC) LoginCodeReqSMS(pnumber string) error {
-	result, err := usecase.authRepo.CekPhoneNumber(pnumber)
+	resp, err := usecase.authRepo.CekPhoneNumber(pnumber)
 	if err != nil {
 		return err
 	}
 
-	if !result {
-		return err
+	if resp.Status != "active" {
+		code, err := generateCode.GenerateCode()
+		if err != nil {
+			return err
+		}
+
+		var pnumber string
+		respInsertCode, err := usecase.authRepo.InsertCode(code, resp.Email, pnumber)
+		if err != nil {
+			return err
+		}
+		if !respInsertCode {
+			return err
+		}
+
+		err = sendEmail.SendEmailActivedAccount(resp.Email, resp.Username, code, resp.Unique)
+		if err != nil {
+			return err
+		}
+		return errors.New("account has not been activated, please check the email inbox for the activation link")
 	}
 
 	code, err := generateCode.GenerateCode()
@@ -102,7 +137,7 @@ func (usecase *authUC) LoginReq(req userDto.UserLoginRequest) (resp userDto.User
 
 	err = hashingPassword.ComparePassword(resp.Pin, req.Pin)
 	if err != nil {
-		return resp, err
+		return resp, errors.New("invalid pin or verification code")
 	}
 
 	resp.Token, err = getJwtToken.GetTokenJwt(resp.UserId, resp.UserEmail, resp.Roles)
@@ -182,7 +217,7 @@ func (usecase *authUC) ActivatedAccount(req userDto.ActivatedAccountReq) (err er
 	return nil
 }
 
-func (usecase *authUC) ForgotPinReqUC(req userDto.FogetPinReq) (err error) {
+func (usecase *authUC) ForgotPinReqUC(req userDto.ForgetPinReq) (err error) {
 
 	code, err := generateCode.GenerateCode()
 	if err != nil {

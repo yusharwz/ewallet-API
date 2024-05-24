@@ -27,7 +27,31 @@ func NewUserDelivery(v1Group *gin.RouterGroup, userUC user.UserUsecase) {
 		userGroup.GET("/balance", middleware.JwtAuthWithRoles("USER"), handler.getBalanceInfo)
 		userGroup.POST("/balance/topup", middleware.JwtAuthWithRoles("USER"), handler.topupTransactionRequest)
 		userGroup.POST("/balance/transfer", middleware.JwtAuthWithRoles("USER"), handler.walletTransactionRequest)
+		userGroup.POST("/info/update", middleware.JwtAuthWithRoles("USER"), handler.updateDataUser)
 	}
+}
+
+func (u *userDelivery) updateDataUser(ctx *gin.Context) {
+	authHeader := ctx.GetHeader("Authorization")
+	var req userDto.UserUpdateReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+		json.NewResponseError(ctx, "json request body required", "01", "02")
+		return
+	}
+
+	err := u.userUC.EditDataUserUC(authHeader, req)
+	if err != nil {
+		json.NewResponseError(ctx, err.Error(), "01", "01")
+		return
+	}
+
+	json.NewResponSucces(ctx, nil, "Succes update data", "01", "01")
 }
 
 func (u *userDelivery) getDataUser(ctx *gin.Context) {

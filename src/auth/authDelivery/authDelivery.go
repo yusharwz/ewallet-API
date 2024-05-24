@@ -136,7 +136,7 @@ func (a *authDelivery) activatedAccount(ctx *gin.Context) {
 }
 
 func (a *authDelivery) forgotPinReq(ctx *gin.Context) {
-	var req userDto.FogetPinReq
+	var req userDto.ForgetPinReq
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		validationError := validation.GetValidationError(err)

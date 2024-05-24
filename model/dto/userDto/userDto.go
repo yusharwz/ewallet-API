@@ -14,9 +14,9 @@ type (
 	}
 
 	UserLoginRequest struct {
-		PhoneNumber string `json:"phoneNumber" binding:"required,nomorHp"`
-		Pin         string `json:"pin" binding:"required,pin,min=6,max=6"`
-		Code        string `json:"code" binding:"required"`
+		Email string `json:"email" binding:"required,email"`
+		Pin   string `json:"pin" binding:"required,pin,min=6,max=6"`
+		Code  string `json:"code" binding:"required"`
 	}
 
 	UploadImagesRequest struct {
@@ -34,6 +34,13 @@ type (
 		Token     string `json:"token,omitempty"`
 		Roles     string `json:"roles,omitempty"`
 		Status    string `json:"status,omitempty"`
+	}
+
+	UserUpdateReq struct {
+		UserId      string
+		Fullname    string `json:"fullname"`
+		Email       string `json:"email"`
+		PhoneNumber string `json:"phoneNumber"`
 	}
 
 	UserCreateRequest struct {
@@ -60,16 +67,17 @@ type (
 		PhoneNumber string `json:"phoneNumber"`
 	}
 
-	FogetPinReq struct {
+	ForgetPinReq struct {
 		Email       string `json:"email" binding:"required,email"`
 		PhoneNumber string `json:"phoneNumber" binding:"required,nomorHp"`
 	}
 
-	FogetPinResp struct {
+	ForgetPinResp struct {
 		Email    string
 		Username string
 		Code     string
 		Unique   string
+		Status   string
 	}
 
 	ForgetPinParams struct {
