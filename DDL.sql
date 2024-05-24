@@ -59,10 +59,6 @@ CREATE TABLE topup_transactions (
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Membuat indeks untuk tabel transactions
 CREATE INDEX idx_user_id ON transactions(user_id);
--- Membuat indeks untuk tabel wallet_transactions
 CREATE INDEX idx_from_wallet_id ON wallet_transactions(from_wallet_id);
 CREATE INDEX idx_to_wallet_id ON wallet_transactions(to_wallet_id);
--- Membuat indeks untuk tabel topup_transactions
-CREATE INDEX idx_from_wallet_id_topup ON topup_transactions(from_wallet_id);

@@ -3,11 +3,7 @@ package userUsecase
 import (
 	"errors"
 	"final-project-enigma/model/dto/userDto"
-	"final-project-enigma/pkg/helper/generateCode"
-	"final-project-enigma/pkg/helper/getJwtToken"
 	"final-project-enigma/pkg/helper/hashingPassword"
-	"final-project-enigma/pkg/helper/sendEmail"
-	"final-project-enigma/pkg/helper/sendWhatappTwilio"
 	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/src/user"
 	"strconv"
@@ -19,103 +15,6 @@ type userUC struct {
 
 func NewUserUsecase(userRepo user.UserRepository) user.UserUsecase {
 	return &userUC{userRepo}
-}
-
-func (usecase *userUC) LoginCodeReqEmail(email string) error {
-	result, err := usecase.userRepo.CekEmail(email)
-	if err != nil {
-		return err
-	}
-
-	if !result {
-		return err
-	}
-
-	code, err := generateCode.GenerateCode()
-	if err != nil {
-		return err
-	}
-
-	var pnumber string
-	respInsertCode, err := usecase.userRepo.InsertCode(code, email, pnumber)
-	if err != nil {
-		return err
-	}
-	if !respInsertCode {
-		return err
-	}
-
-	emailResp, err := sendEmail.SendEmail(email, code)
-
-	if err != nil {
-		return errors.New("failed to send email")
-	}
-
-	if !emailResp {
-		return errors.New("failed to send email")
-	}
-	return nil
-}
-
-func (usecase *userUC) LoginCodeReqSMS(pnumber string) error {
-	result, err := usecase.userRepo.CekPhoneNumber(pnumber)
-	if err != nil {
-		return err
-	}
-
-	if !result {
-		return err
-	}
-
-	code, err := generateCode.GenerateCode()
-	if err != nil {
-		return err
-	}
-
-	var email string
-	respInsertCode, err := usecase.userRepo.InsertCode(code, email, pnumber)
-	if err != nil {
-		return err
-	}
-	if !respInsertCode {
-		return err
-	}
-
-	emailResp, err := sendWhatappTwilio.SendWhatsAppMessage(pnumber, code)
-
-	if err != nil {
-		return err
-	}
-
-	if !emailResp {
-		return err
-	}
-
-	return nil
-}
-
-func (usecase *userUC) LoginReq(req userDto.UserLoginRequest) (resp userDto.UserLoginResponse, err error) {
-
-	resp, err = usecase.userRepo.UserLogin(req)
-	if err != nil {
-		return resp, err
-	}
-
-	err = hashingPassword.ComparePassword(resp.Pin, req.Pin)
-	if err != nil {
-		return resp, err
-	}
-
-	resp.Token, err = getJwtToken.GetTokenJwt(resp.UserId, resp.UserEmail, resp.Roles)
-	if err != nil {
-		return resp, err
-	}
-
-	resp.UserId = ""
-	resp.UserEmail = ""
-	resp.Pin = ""
-
-	return resp, nil
 }
 
 func (usecase *userUC) UploadImagesRequestUC(authHeader string, file userDto.UploadImagesRequest) error {
@@ -131,58 +30,6 @@ func (usecase *userUC) UploadImagesRequestUC(authHeader string, file userDto.Upl
 	}
 
 	err = usecase.userRepo.ImageToDB(userId, resp)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (usecase *userUC) CreateReq(req userDto.UserCreateRequest) (resp userDto.UserCreateResponse, err error) {
-
-	hashedPin, err := hashingPassword.HashPassword(req.Pin)
-	if err != nil {
-		return resp, err
-	}
-
-	req.Pin = hashedPin
-	req.Roles = "USER"
-
-	resp, unique, err := usecase.userRepo.UserCreate(req)
-	if err != nil {
-		return resp, err
-	}
-
-	err = usecase.userRepo.UserWalletCreate(resp.Id)
-	if err != nil {
-		return resp, err
-	}
-
-	code, err := generateCode.GenerateCode()
-	if err != nil {
-		return resp, err
-	}
-
-	var pnumber string
-	respInsertCode, err := usecase.userRepo.InsertCode(code, resp.Email, pnumber)
-	if err != nil {
-		return resp, err
-	}
-	if !respInsertCode {
-		return resp, err
-	}
-
-	err = sendEmail.SendEmailActivedAccount(resp.Email, resp.Username, code, unique)
-	if err != nil {
-		return resp, err
-	}
-
-	return resp, nil
-}
-
-func (usecase *userUC) ActivaedAccount(req userDto.ActivatedAccountReq) (err error) {
-
-	err = usecase.userRepo.ActivedAccount(req)
 	if err != nil {
 		return err
 	}
@@ -289,7 +136,7 @@ func (usecase *userUC) TopUpTransaction(req userDto.TopUpTransactionRequest, aut
 
 	resp, err := usecase.userRepo.PaymentGateway(request)
 
-	if err := usecase.userRepo.InsertURL(transactionId, resp.RedirectUrl); err != nil {
+	if err := usecase.userRepo.InsertPaymentURL(transactionId, resp.RedirectUrl); err != nil {
 		return userDto.MidtransSnapResp{}, err
 	}
 	qrisPath := "#/other-qris"
@@ -370,38 +217,4 @@ func (usecase *userUC) WalletTransaction(req userDto.WalletTransactionRequest, a
 		return userDto.WalletTransactionResponse{}, errors.New("invalid PIN")
 	}
 	return resp, nil
-}
-
-func (usecase *userUC) MidtransStatusReq(notification userDto.MidtransNotification) error {
-
-	switch notification.TransactionStatus {
-	case "capture":
-		if notification.FraudStatus == "challenge" {
-		} else if notification.FraudStatus == "accept" {
-			usecase.userRepo.UpdateTransactionStatus(notification.OrderID, "settlement")
-		}
-	case "settlement":
-		if err := usecase.userRepo.UpdateTransactionStatus(notification.OrderID, "succes"); err != nil {
-			return err
-		}
-		if err := usecase.userRepo.UpdateBalance(notification.OrderID, notification.GrossAmount); err != nil {
-			return err
-		}
-	case "deny":
-		if err := usecase.userRepo.UpdateTransactionStatus(notification.OrderID, "deny"); err != nil {
-			return err
-		}
-	case "cancel", "expire":
-		if err := usecase.userRepo.UpdateTransactionStatus(notification.OrderID, "cancel"); err != nil {
-			return err
-		}
-	case "pending":
-		if err := usecase.userRepo.UpdateTransactionStatus(notification.OrderID, "pending"); err != nil {
-			return err
-		}
-	default:
-		usecase.userRepo.UpdateTransactionStatus(notification.OrderID, notification.TransactionStatus)
-	}
-
-	return nil
 }

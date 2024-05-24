@@ -95,8 +95,8 @@ type (
 	TransactionDetail struct {
 		SenderName    string `json:"senderName,omitempty"`
 		RecipientName string `json:"recipientName,omitempty"`
-		SenderId      string `json:"senderId,omitempty"`
-		RecipientId   string `json:"recipientId,omitempty"`
+		SenderId      string `json:"-"`
+		RecipientId   string `json:"-"`
 		PaymentMethod string `json:"paymentMethod,omitempty"`
 		PaymentURL    string `json:"paymentURL,omitempty"`
 		FromWalletId  string `json:"fromWalletId,omitempty"`
