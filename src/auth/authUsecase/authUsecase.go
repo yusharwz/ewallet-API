@@ -9,6 +9,7 @@ import (
 	"final-project-enigma/pkg/helper/sendEmail"
 	"final-project-enigma/pkg/helper/sendWhatappTwilio"
 	"final-project-enigma/src/auth"
+	"fmt"
 )
 
 type authUC struct {
@@ -162,6 +163,82 @@ func (usecase *authUC) ActivatedAccount(req userDto.ActivatedAccountReq) (err er
 
 	err = usecase.authRepo.ActivedAccount(req)
 	if err != nil {
+		return err
+	}
+
+	code, err := generateCode.GenerateCode()
+	if err != nil {
+		return err
+	}
+	var pnumber string
+	respInsertCode, err := usecase.authRepo.InsertCode(code, req.Email, pnumber)
+	if err != nil {
+		return err
+	}
+	if !respInsertCode {
+		return err
+	}
+
+	return nil
+}
+
+func (usecase *authUC) ForgotPinReqUC(req userDto.FogetPinReq) (err error) {
+
+	code, err := generateCode.GenerateCode()
+	if err != nil {
+		return err
+	}
+	var pnumber string
+	respInsertCode, err := usecase.authRepo.InsertCode(code, req.Email, pnumber)
+	if err != nil {
+		return err
+	}
+	if !respInsertCode {
+		return err
+	}
+
+	resp, err := usecase.authRepo.SendLinkForgetPin(req)
+	if err != nil {
+		return err
+	}
+	fmt.Println(resp)
+
+	err = sendEmail.SendEmailForgotPin(resp.Email, resp.Username, resp.Code, resp.Unique)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (usecase *authUC) ResetPinUC(req userDto.ForgetPinParams) error {
+
+	if req.NewPin != req.RetypeNewPin {
+		return errors.New("new pin and retype new pin not match")
+	}
+
+	hashedPin, err := hashingPassword.HashPassword(req.NewPin)
+	if err != nil {
+		return err
+	}
+
+	req.NewPin = hashedPin
+
+	err = usecase.authRepo.ResetPinRepo(req)
+	if err != nil {
+		return err
+	}
+
+	code, err := generateCode.GenerateCode()
+	if err != nil {
+		return err
+	}
+	var pnumber string
+	respInsertCode, err := usecase.authRepo.InsertCode(code, req.Email, pnumber)
+	if err != nil {
+		return err
+	}
+	if !respInsertCode {
 		return err
 	}
 

@@ -6,6 +6,7 @@ import (
 	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/pkg/validation"
 	"final-project-enigma/src/auth"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,6 +27,8 @@ func NewAuthDelivery(v1Group *gin.RouterGroup, authUC auth.AuthUsecase) {
 		authGroup.POST("/request-otp/message", middleware.BasicAuth, handler.loginUserCodeReuqestSMS)
 		authGroup.POST("/login", middleware.BasicAuth, handler.loginUserReuqest)
 		authGroup.GET("/activate-account", handler.activatedAccount)
+		authGroup.POST("/forget-pin", middleware.BasicAuth, handler.forgotPinReq)
+		authGroup.POST("/reset-pin", middleware.BasicAuth, handler.resetPin)
 	}
 }
 
@@ -130,4 +133,56 @@ func (a *authDelivery) activatedAccount(ctx *gin.Context) {
 	}
 
 	json.NewResponSucces(ctx, nil, "your account has been activated", "01", "01")
+}
+
+func (a *authDelivery) forgotPinReq(ctx *gin.Context) {
+	var req userDto.FogetPinReq
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+		json.NewResponseError(ctx, "json request body required", "01", "02")
+		return
+	}
+
+	err := a.authUC.ForgotPinReqUC(req)
+	if err != nil {
+		fmt.Println(err)
+		json.NewResponseForbidden(ctx, err.Error(), "01", "01")
+		return
+	}
+
+	json.NewResponSucces(ctx, nil, "Check your email for reset pin link", "01", "01")
+}
+
+func (a *authDelivery) resetPin(ctx *gin.Context) {
+	var req userDto.ForgetPinParams
+
+	req.Email = ctx.Query("email")
+	req.Username = ctx.Query("username")
+	req.Unique = ctx.Query("unique")
+	req.Code = ctx.Query("code")
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+		json.NewResponseError(ctx, "json request body required", "01", "02")
+		return
+	}
+
+	err := a.authUC.ResetPinUC(req)
+	if err != nil {
+		json.NewResponseForbidden(ctx, err.Error(), "01", "01")
+		return
+	}
+
+	json.NewResponSucces(ctx, nil, "Succes change your pin", "01", "01")
 }

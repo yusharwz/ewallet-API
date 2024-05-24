@@ -176,3 +176,39 @@ func (repo *authRepository) ActivedAccount(req userDto.ActivatedAccountReq) (err
 
 	return nil
 }
+
+func (repo *authRepository) SendLinkForgetPin(req userDto.FogetPinReq) (resp userDto.FogetPinResp, err error) {
+
+	queryCheckEmail := `SELECT email, username, verification_code, pin FROM users WHERE email = $1 AND phone_number = $2`
+	if err := repo.db.QueryRow(queryCheckEmail, req.Email, req.PhoneNumber).Scan(&resp.Email, &resp.Username, &resp.Code, &resp.Unique); err != nil {
+		return userDto.FogetPinResp{}, errors.New("invalid email or phone number")
+	}
+	return resp, nil
+}
+
+func (repo *authRepository) ResetPinRepo(req userDto.ForgetPinParams) error {
+
+	var expiredCode time.Time
+	checkCodeExpired := "SELECT expired_code  FROM users WHERE email = $1 AND username = $2 AND pin = $3 AND verification_code = $4"
+	if err := repo.db.QueryRow(checkCodeExpired, req.Email, req.Username, req.Unique, req.Code).Scan(&expiredCode); err != nil {
+		return errors.New("link reset pin has expired")
+	}
+	currentTime := time.Now().UTC().Add(7 * time.Hour)
+	expiredTimestamp := expiredCode.Unix()
+	currentTimestamp := currentTime.Unix()
+	if currentTimestamp > expiredTimestamp {
+		return errors.New("link reset pin has expired")
+	}
+
+	queryUpdate := `
+		UPDATE users
+		SET pin = $1
+		WHERE email = $2 AND username = $3 AND pin = $4 AND verification_code = $5
+	`
+
+	if _, err := repo.db.Exec(queryUpdate, req.NewPin, req.Email, req.Username, req.Unique, req.Code); err != nil {
+		return errors.New("failed to reset pin")
+	}
+
+	return nil
+}

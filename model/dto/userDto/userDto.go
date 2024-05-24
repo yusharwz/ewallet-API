@@ -60,6 +60,27 @@ type (
 		PhoneNumber string `json:"phoneNumber"`
 	}
 
+	FogetPinReq struct {
+		Email       string `json:"email" binding:"required,email"`
+		PhoneNumber string `json:"phoneNumber" binding:"required,nomorHp"`
+	}
+
+	FogetPinResp struct {
+		Email    string
+		Username string
+		Code     string
+		Unique   string
+	}
+
+	ForgetPinParams struct {
+		Email        string
+		NewPin       string `json:"newPin" binding:"required,pin"`
+		RetypeNewPin string `json:"retypeNewPin" binding:"required,pin"`
+		Username     string
+		Code         string
+		Unique       string
+	}
+
 	UserGetDataResponse struct {
 		Fullname     string `json:"fullname,omitempty"`
 		Username     string `json:"username,omitempty"`

@@ -136,9 +136,6 @@ func (usecase *userUC) TopUpTransaction(req userDto.TopUpTransactionRequest, aut
 
 	resp, err := usecase.userRepo.PaymentGateway(request)
 
-	if err := usecase.userRepo.InsertPaymentURL(transactionId, resp.RedirectUrl); err != nil {
-		return userDto.MidtransSnapResp{}, err
-	}
 	qrisPath := "#/other-qris"
 	bcaVaPath := "#/bank-transfer/bca-va"
 	mandiriVaPath := "#/bank-transfer/mandiri-va"
@@ -195,6 +192,10 @@ func (usecase *userUC) TopUpTransaction(req userDto.TopUpTransactionRequest, aut
 	}
 	if req.PaymentMethodId == "220309af-cd3b-40e5-b353-6754c66f3831" {
 		resp.RedirectUrl += kredivoPath
+	}
+
+	if err := usecase.userRepo.InsertPaymentURL(transactionId, resp.RedirectUrl); err != nil {
+		return userDto.MidtransSnapResp{}, err
 	}
 
 	return resp, err
