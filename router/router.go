@@ -39,6 +39,7 @@ func InitRoute(v1Group *gin.RouterGroup, db *sql.DB, client *resty.Client) {
 	paymentUC := paymentUsecase.NewPaymentUsecase(paymentRepo)
 	paymentDelivery.NewPaymentDelivery(v1Group, paymentUC)
 
+	//Admin
 	adminRepo := adminRepository.NewAdminRepository(db)
 	adminUC := adminUsecase.NewAdminUsecase(adminRepo)
 	adminDelivery.NewAdminDelivery(v1Group, adminUC)
