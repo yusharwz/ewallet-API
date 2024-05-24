@@ -5,9 +5,9 @@ import (
 	"fmt"
 )
 
-func GetTokenJwt(userId, userEmail string) (string, error) {
+func GetTokenJwt(userId, userEmail, roles string) (string, error) {
 
-	token, err := middleware.GenerateTokenJwt(userId, userEmail, 3)
+	token, err := middleware.GenerateTokenJwt(userId, userEmail, roles, 720)
 	if err != nil {
 		fmt.Println(err)
 		return "", err
