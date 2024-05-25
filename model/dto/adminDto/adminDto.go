@@ -31,11 +31,11 @@ type (
 	}
 	UserUpdateRequest struct {
 		ID          string `json:"id"`
-		Fullname    string `json:"fullname" binding:"required"`
-		Username    string `json:"username" binding:"required"`
-		Email       string `json:"email" binding:"required,email"`
-		Pin         string `json:"pin" binding:"required,password"`
-		PhoneNumber string `json:"phone_number" binding:"required,nomorHp"`
+		Fullname    string `json:"fullname"`
+		Username    string `json:"username"`
+		Email       string `json:"email"`
+		Pin         string `json:"pin"`
+		PhoneNumber string `json:"phone_number"`
 	}
 	GetPaymentMethodParams struct {
 		ID          string `json:"id"`
