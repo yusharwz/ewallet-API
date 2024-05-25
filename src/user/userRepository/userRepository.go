@@ -106,7 +106,6 @@ func (repo *userRepository) ImageToDB(userId string, req userDto.UploadImagesRes
 		WHERE id = $3 AND deleted_at IS NULL
 	`
 	if _, err := repo.db.Exec(query, req.Url, currentTime, userId); err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -131,7 +130,6 @@ func (repo *userRepository) GetBalanceInfoRepo(id string) (resp userDto.UserGetD
 
 	query := "SELECT balance FROM wallets WHERE user_id = $1 AND deleted_at IS NULL;"
 	if err := repo.db.QueryRow(query, id).Scan(&resp.Balance); err != nil {
-		fmt.Println(err)
 		return resp, errors.New("fail to get data db")
 	}
 

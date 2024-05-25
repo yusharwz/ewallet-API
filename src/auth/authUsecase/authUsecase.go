@@ -9,7 +9,6 @@ import (
 	"final-project-enigma/pkg/helper/sendEmail"
 	"final-project-enigma/pkg/helper/sendWhatappTwilio"
 	"final-project-enigma/src/auth"
-	"fmt"
 )
 
 type authUC struct {
@@ -236,7 +235,6 @@ func (usecase *authUC) ForgotPinReqUC(req userDto.ForgetPinReq) (err error) {
 	if err != nil {
 		return err
 	}
-	fmt.Println(resp)
 
 	err = sendEmail.SendEmailForgotPin(resp.Email, resp.Username, resp.Code, resp.Unique)
 	if err != nil {

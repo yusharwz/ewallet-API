@@ -6,7 +6,6 @@ import (
 	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/pkg/validation"
 	"final-project-enigma/src/auth"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -151,7 +150,6 @@ func (a *authDelivery) forgotPinReq(ctx *gin.Context) {
 
 	err := a.authUC.ForgotPinReqUC(req)
 	if err != nil {
-		fmt.Println(err)
 		json.NewResponseForbidden(ctx, err.Error(), "01", "01")
 		return
 	}

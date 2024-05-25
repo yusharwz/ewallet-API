@@ -6,7 +6,6 @@ import (
 	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/pkg/validation"
 	"final-project-enigma/src/user"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -117,7 +116,6 @@ func (u *userDelivery) getTransactionsDetail(ctx *gin.Context) {
 
 	resp, totalData, err := u.userUC.GetTransactionUC(authHeader, params)
 	if err != nil {
-		fmt.Println(err)
 		json.NewResponseForbidden(ctx, "No transaction record", "02", "02")
 		return
 	}
