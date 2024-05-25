@@ -122,33 +122,29 @@ func (repo *userRepository) GetBalanceInfoRepo(id string) (resp userDto.UserGetD
 }
 
 func (repo *userRepository) GetTotalDataCount(params userDto.GetTransactionParams) (totalData int, err error) {
-
-	subquery1 := `
+	baseQuery := `
       SELECT COUNT(*)
-      FROM
-            transactions t
-      WHERE
-            t.user_id = $1
-   `
-
-	subquery2 := `
-      SELECT COUNT(*)
-      FROM
-            transactions t
-      JOIN
-            wallet_transactions wt ON t.id = wt.transaction_id
-      JOIN
-            wallets w ON wt.from_wallet_id = w.id OR wt.to_wallet_id = w.id
-      WHERE
-            w.user_id = $1
+      FROM (
+            SELECT t.id
+            FROM transactions t
+            WHERE t.user_id = $1
+            UNION
+            SELECT t.id
+            FROM transactions t
+            JOIN wallet_transactions wt ON t.id = wt.transaction_id
+            JOIN wallets w ON wt.from_wallet_id = w.id OR wt.to_wallet_id = w.id
+            WHERE w.user_id = $1
+      ) subquery
    `
 
 	args := []interface{}{params.UserId}
 	conditionIndex := 2
 
 	addCondition := func(condition string, value interface{}) {
-		subquery1 += fmt.Sprintf(" AND %s = $%d", condition, conditionIndex)
-		subquery2 += fmt.Sprintf(" AND %s = $%d", condition, conditionIndex)
+		baseQuery = fmt.Sprintf(`
+            %s
+            AND %s = $%d
+      `, baseQuery, condition, conditionIndex)
 		args = append(args, value)
 		conditionIndex++
 	}
@@ -160,14 +156,18 @@ func (repo *userRepository) GetTotalDataCount(params userDto.GetTransactionParam
 		addCondition("t.transaction_type", params.TrxType)
 	}
 	if params.TrxDateStart != "" {
-		subquery1 += fmt.Sprintf(" AND t.created_at >= $%d", conditionIndex)
-		subquery2 += fmt.Sprintf(" AND t.created_at >= $%d", conditionIndex)
+		baseQuery = fmt.Sprintf(`
+            %s
+            AND t.created_at >= $%d
+      `, baseQuery, conditionIndex)
 		args = append(args, params.TrxDateStart)
 		conditionIndex++
 	}
 	if params.TrxDateEnd != "" {
-		subquery1 += fmt.Sprintf(" AND t.created_at <= $%d", conditionIndex)
-		subquery2 += fmt.Sprintf(" AND t.created_at <= $%d", conditionIndex)
+		baseQuery = fmt.Sprintf(`
+            %s
+            AND t.created_at <= $%d
+      `, baseQuery, conditionIndex)
 		args = append(args, params.TrxDateEnd)
 		conditionIndex++
 	}
@@ -175,16 +175,7 @@ func (repo *userRepository) GetTotalDataCount(params userDto.GetTransactionParam
 		addCondition("t.status", params.TrxStatus)
 	}
 
-	query := `
-      SELECT SUM(count)
-      FROM (
-            ` + subquery1 + `
-            UNION ALL
-            ` + subquery2 + `
-      ) AS subquery
-   `
-
-	if err := repo.db.QueryRow(query, args...).Scan(&totalData); err != nil {
+	if err := repo.db.QueryRow(baseQuery, args...).Scan(&totalData); err != nil {
 		return 0, fmt.Errorf("fail to get total data count: %w", err)
 	}
 
