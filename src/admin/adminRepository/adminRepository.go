@@ -189,7 +189,7 @@ func (r *adminRepo) UpdateUser(user adminDto.User) error {
 	return nil
 }
 
-func (r *adminRepo) GetpaymentMethodByParams(params adminDto.GetpaymentMethodParams) ([]adminDto.PaymentMethod, error) {
+func (r *adminRepo) GetpaymentMethodByParams(params adminDto.GetPaymentMethodParams) ([]adminDto.PaymentMethod, error) {
 	query := "SELECT id, payment_name,created_at FROM payment_method WHERE 1=1 AND deleted_at IS NULL"
 	var args []interface{}
 	argIndex := 1

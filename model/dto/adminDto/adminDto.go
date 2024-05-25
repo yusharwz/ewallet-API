@@ -37,7 +37,7 @@ type (
 		Pin         string `json:"pin" binding:"required,password"`
 		PhoneNumber string `json:"phone_number" binding:"required,nomorHp"`
 	}
-	GetpaymentMethodParams struct {
+	GetPaymentMethodParams struct {
 		ID          string `json:"id"`
 		PaymentName string `json:"payment_name"`
 		CreatedAt   string `json:"createdAt"`
