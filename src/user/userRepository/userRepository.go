@@ -122,33 +122,29 @@ func (repo *userRepository) GetBalanceInfoRepo(id string) (resp userDto.UserGetD
 }
 
 func (repo *userRepository) GetTotalDataCount(params userDto.GetTransactionParams) (totalData int, err error) {
-
-	subquery1 := `
+	baseQuery := `
       SELECT COUNT(*)
-      FROM
-            transactions t
-      WHERE
-            t.user_id = $1
-   `
-
-	subquery2 := `
-      SELECT COUNT(*)
-      FROM
-            transactions t
-      JOIN
-            wallet_transactions wt ON t.id = wt.transaction_id
-      JOIN
-            wallets w ON wt.from_wallet_id = w.id OR wt.to_wallet_id = w.id
-      WHERE
-            w.user_id = $1
+      FROM (
+            SELECT t.id
+            FROM transactions t
+            WHERE t.user_id = $1
+            UNION
+            SELECT t.id
+            FROM transactions t
+            JOIN wallet_transactions wt ON t.id = wt.transaction_id
+            JOIN wallets w ON wt.from_wallet_id = w.id OR wt.to_wallet_id = w.id
+            WHERE w.user_id = $1
+      ) subquery
    `
 
 	args := []interface{}{params.UserId}
 	conditionIndex := 2
 
 	addCondition := func(condition string, value interface{}) {
-		subquery1 += fmt.Sprintf(" AND %s = $%d", condition, conditionIndex)
-		subquery2 += fmt.Sprintf(" AND %s = $%d", condition, conditionIndex)
+		baseQuery = fmt.Sprintf(`
+            %s
+            AND %s = $%d
+      `, baseQuery, condition, conditionIndex)
 		args = append(args, value)
 		conditionIndex++
 	}
@@ -160,14 +156,18 @@ func (repo *userRepository) GetTotalDataCount(params userDto.GetTransactionParam
 		addCondition("t.transaction_type", params.TrxType)
 	}
 	if params.TrxDateStart != "" {
-		subquery1 += fmt.Sprintf(" AND t.created_at >= $%d", conditionIndex)
-		subquery2 += fmt.Sprintf(" AND t.created_at >= $%d", conditionIndex)
+		baseQuery = fmt.Sprintf(`
+            %s
+            AND t.created_at >= $%d
+      `, baseQuery, conditionIndex)
 		args = append(args, params.TrxDateStart)
 		conditionIndex++
 	}
 	if params.TrxDateEnd != "" {
-		subquery1 += fmt.Sprintf(" AND t.created_at <= $%d", conditionIndex)
-		subquery2 += fmt.Sprintf(" AND t.created_at <= $%d", conditionIndex)
+		baseQuery = fmt.Sprintf(`
+            %s
+            AND t.created_at <= $%d
+      `, baseQuery, conditionIndex)
 		args = append(args, params.TrxDateEnd)
 		conditionIndex++
 	}
@@ -175,16 +175,7 @@ func (repo *userRepository) GetTotalDataCount(params userDto.GetTransactionParam
 		addCondition("t.status", params.TrxStatus)
 	}
 
-	query := `
-      SELECT SUM(count)
-      FROM (
-            ` + subquery1 + `
-            UNION ALL
-            ` + subquery2 + `
-      ) AS subquery
-   `
-
-	if err := repo.db.QueryRow(query, args...).Scan(&totalData); err != nil {
+	if err := repo.db.QueryRow(baseQuery, args...).Scan(&totalData); err != nil {
 		return 0, fmt.Errorf("fail to get total data count: %w", err)
 	}
 
@@ -482,15 +473,20 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	getRecipientWalletIdQuery := `
-      SELECT w.id 
-      FROM wallets w
-      JOIN users u ON u.id = w.user_id
-      WHERE u.phone_number = $1
-   `
+		SELECT w.id 
+		FROM wallets w
+		JOIN users u ON u.id = w.user_id
+		WHERE u.phone_number = $1 AND u.status = 'active'
+	`
 	err = tx.QueryRow(getRecipientWalletIdQuery, req.RecipientPhoneNumber).Scan(&req.ToWalletId)
 	if err != nil {
 		tx.Rollback()
 		return userDto.WalletTransactionResponse{}, "", errors.New("recipient not found")
+	}
+
+	if req.FromWalletId == req.ToWalletId {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, "", errors.New("sender and recipient cannot be the same")
 	}
 
 	var senderBalance float64
@@ -519,10 +515,10 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	transactionQuery := `
-      INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
-      VALUES ($1, 'debit', $2, $3, $4, 'success')
-      RETURNING id
-   `
+		INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
+		VALUES ($1, 'debit', $2, $3, $4, 'success')
+		RETURNING id
+	`
 	var transactionID string
 	err = tx.QueryRow(transactionQuery, req.UserId, req.Amount, req.Description, time.Now()).Scan(&transactionID)
 	if err != nil {
@@ -531,9 +527,9 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	walletTransactionQuery := `
-      INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
-      VALUES ($1, $2, $3, $4)
-   `
+		INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
 	_, err = tx.Exec(walletTransactionQuery, transactionID, req.FromWalletId, req.ToWalletId, time.Now())
 	if err != nil {
 		tx.Rollback()
@@ -543,10 +539,10 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	currentTime := time.Now()
 
 	updateSenderBalanceQuery := `
-      UPDATE wallets
-      SET balance = balance - $1, updated_at = $2
-      WHERE id = $3 AND balance >= $1
-   `
+		UPDATE wallets
+		SET balance = balance - $1, updated_at = $2
+		WHERE id = $3 AND balance >= $1
+	`
 
 	res, err := tx.Exec(updateSenderBalanceQuery, amount, currentTime, req.FromWalletId)
 	if err != nil {
@@ -566,10 +562,10 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	updateRecipientBalanceQuery := `
-      UPDATE wallets
-      SET balance = balance + $1, updated_at = $2
-      WHERE id = $3
-   `
+		UPDATE wallets
+		SET balance = balance + $1, updated_at = $2
+		WHERE id = $3
+	`
 	_, err = tx.Exec(updateRecipientBalanceQuery, amount, currentTime, req.ToWalletId)
 	if err != nil {
 		tx.Rollback()
