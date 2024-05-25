@@ -14,6 +14,22 @@ type adminDelivery struct {
 	adminUsecase admin.AdminUsecase
 }
 
+func NewAdminDelivery(router *gin.RouterGroup, adminUsecase admin.AdminUsecase) {
+	handler := adminDelivery{adminUsecase: adminUsecase}
+
+	adminGroup := router.Group("/admin")
+	{
+		adminGroup.GET("/users", handler.GetUsersByParams)
+		adminGroup.DELETE("/user/:id", handler.SoftDeleteUser)
+		adminGroup.PUT("/user/:id", handler.UpdateUser)
+		adminGroup.GET("/paymentMethod", handler.GetpaymentMethodByParams)
+		adminGroup.POST("/paymentMethod", handler.SavePaymentMethod)
+		adminGroup.PUT("/paymentMethod/:id", handler.UpdatePaymentMethod)
+		adminGroup.DELETE("/paymentMethod/:id", handler.SoftDeletePaymentMethod)
+		adminGroup.GET("/wallet", handler.GetWalletByParams)
+	}
+}
+
 func (d *adminDelivery) SavePaymentMethod(c *gin.Context) {
 	var req adminDto.CreatePaymentMethod
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -168,20 +184,4 @@ func (d *adminDelivery) GetWalletByParams(c *gin.Context) {
 	}
 
 	json.NewResponSucces(c, wallets, "Success get wallet data", "01", "01")
-}
-
-func NewAdminDelivery(router *gin.RouterGroup, adminUsecase admin.AdminUsecase) {
-	handler := adminDelivery{adminUsecase: adminUsecase}
-
-	adminGroup := router.Group("/admin")
-	{
-		adminGroup.GET("/users", handler.GetUsersByParams)
-		adminGroup.DELETE("/user/:id", handler.SoftDeleteUser)
-		adminGroup.PUT("/user/:id", handler.UpdateUser)
-		adminGroup.GET("/paymentMethod", handler.GetpaymentMethodByParams)
-		adminGroup.POST("/paymentMethod", handler.SavePaymentMethod)
-		adminGroup.PUT("/paymentMethod/:id", handler.UpdatePaymentMethod)
-		adminGroup.DELETE("/paymentMethod/:id", handler.SoftDeletePaymentMethod)
-		adminGroup.GET("/wallet", handler.GetWalletByParams)
-	}
 }
