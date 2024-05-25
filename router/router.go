@@ -27,10 +27,6 @@ import (
 
 func InitRoute(v1Group *gin.RouterGroup, db *sql.DB, client *resty.Client) {
 
-	transactionRepo := transactionRepository.NewTransactionRepository(db)
-	transactionUC := transactionUseCase.NewTransactionUseCase(transactionRepo)
-	transactionDelivery.NewTransactionDelivery(v1Group, transactionUC)
-
 	//Auth
 	authRepo := authRepository.NewAuthRepository(db)
 	authUC := authUsecase.NewAuthUsecase(authRepo)
@@ -50,4 +46,9 @@ func InitRoute(v1Group *gin.RouterGroup, db *sql.DB, client *resty.Client) {
 	adminRepo := adminRepository.NewAdminRepository(db)
 	adminUC := adminUsecase.NewAdminUsecase(adminRepo)
 	adminDelivery.NewAdminDelivery(v1Group, adminUC)
+
+	//Transaction
+	transactionRepo := transactionRepository.NewTransactionRepository(db)
+	transactionUC := transactionUseCase.NewTransactionUseCase(transactionRepo)
+	transactionDelivery.NewTransactionDelivery(v1Group, transactionUC)
 }
