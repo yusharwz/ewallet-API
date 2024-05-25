@@ -68,11 +68,6 @@ func (m *MockAdminRepository) UpdateUser(user adminDto.User) error {
 	return args.Error(0)
 }
 
-// Mocking the hashingPassword package
-var mockHashPassword = func(password string) (string, error) {
-	return "hashedPassword", nil
-}
-
 func (m *MockAdminRepository) SoftDeleteUser(userID string) error {
 	args := m.Called(userID)
 	return args.Error(0)
