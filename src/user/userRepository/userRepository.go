@@ -482,15 +482,20 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	getRecipientWalletIdQuery := `
-      SELECT w.id 
-      FROM wallets w
-      JOIN users u ON u.id = w.user_id
-      WHERE u.phone_number = $1
-   `
+		SELECT w.id 
+		FROM wallets w
+		JOIN users u ON u.id = w.user_id
+		WHERE u.phone_number = $1 AND u.status = 'active'
+	`
 	err = tx.QueryRow(getRecipientWalletIdQuery, req.RecipientPhoneNumber).Scan(&req.ToWalletId)
 	if err != nil {
 		tx.Rollback()
 		return userDto.WalletTransactionResponse{}, "", errors.New("recipient not found")
+	}
+
+	if req.FromWalletId == req.ToWalletId {
+		tx.Rollback()
+		return userDto.WalletTransactionResponse{}, "", errors.New("sender and recipient cannot be the same")
 	}
 
 	var senderBalance float64
@@ -519,10 +524,10 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	transactionQuery := `
-      INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
-      VALUES ($1, 'debit', $2, $3, $4, 'success')
-      RETURNING id
-   `
+		INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
+		VALUES ($1, 'debit', $2, $3, $4, 'success')
+		RETURNING id
+	`
 	var transactionID string
 	err = tx.QueryRow(transactionQuery, req.UserId, req.Amount, req.Description, time.Now()).Scan(&transactionID)
 	if err != nil {
@@ -531,9 +536,9 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	walletTransactionQuery := `
-      INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
-      VALUES ($1, $2, $3, $4)
-   `
+		INSERT INTO wallet_transactions (transaction_id, from_wallet_id, to_wallet_id, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
 	_, err = tx.Exec(walletTransactionQuery, transactionID, req.FromWalletId, req.ToWalletId, time.Now())
 	if err != nil {
 		tx.Rollback()
@@ -543,10 +548,10 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	currentTime := time.Now()
 
 	updateSenderBalanceQuery := `
-      UPDATE wallets
-      SET balance = balance - $1, updated_at = $2
-      WHERE id = $3 AND balance >= $1
-   `
+		UPDATE wallets
+		SET balance = balance - $1, updated_at = $2
+		WHERE id = $3 AND balance >= $1
+	`
 
 	res, err := tx.Exec(updateSenderBalanceQuery, amount, currentTime, req.FromWalletId)
 	if err != nil {
@@ -566,10 +571,10 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	updateRecipientBalanceQuery := `
-      UPDATE wallets
-      SET balance = balance + $1, updated_at = $2
-      WHERE id = $3
-   `
+		UPDATE wallets
+		SET balance = balance + $1, updated_at = $2
+		WHERE id = $3
+	`
 	_, err = tx.Exec(updateRecipientBalanceQuery, amount, currentTime, req.ToWalletId)
 	if err != nil {
 		tx.Rollback()
