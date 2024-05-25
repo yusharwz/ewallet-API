@@ -10,7 +10,7 @@ services:
       - postgre-net
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: sudiang123
+      POSTGRES_PASSWORD: 1234
       POSTGRES_DB: final_project_db
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -26,7 +26,7 @@ services:
       - postgre-net
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: sudiang123
+      POSTGRES_PASSWORD: 1234
       POSTGRES_PORT: 5432
 
 networks:
