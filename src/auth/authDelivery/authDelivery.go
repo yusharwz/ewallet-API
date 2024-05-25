@@ -28,7 +28,7 @@ func NewAuthDelivery(v1Group *gin.RouterGroup, authUC auth.AuthUsecase) {
 		authGroup.POST("/login", middleware.BasicAuth, handler.loginUserReuqest)
 		authGroup.GET("/activate-account", handler.activatedAccount)
 		authGroup.POST("/forget-pin", middleware.BasicAuth, handler.forgotPinReq)
-		authGroup.POST("/reset-pin", middleware.BasicAuth, handler.resetPin)
+		authGroup.PUT("/reset-pin", middleware.BasicAuth, handler.resetPin)
 	}
 }
 
