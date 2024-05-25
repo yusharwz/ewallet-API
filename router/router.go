@@ -2,7 +2,7 @@ package router
 
 import (
 	"database/sql"
-
+	"final-project-enigma/src/transaction/transactionRepository"
 	"final-project-enigma/src/user/userDelivery"
 	"final-project-enigma/src/user/userRepository"
 	"final-project-enigma/src/user/userUsecase"
@@ -18,11 +18,18 @@ import (
 	"final-project-enigma/src/admin/adminRepository"
 	"final-project-enigma/src/admin/adminUsecase"
 
+	"final-project-enigma/src/transaction/transactionDelivery"
+	"final-project-enigma/src/transaction/transactionUseCase"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-resty/resty/v2"
 )
 
 func InitRoute(v1Group *gin.RouterGroup, db *sql.DB, client *resty.Client) {
+
+	transactionRepo := transactionRepository.NewTransactionRepository(db)
+	transactionUC := transactionUseCase.NewTransactionUseCase(transactionRepo)
+	transactionDelivery.NewTransactionDelivery(v1Group, transactionUC)
 
 	//Auth
 	authRepo := authRepository.NewAuthRepository(db)
