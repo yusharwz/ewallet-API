@@ -7,21 +7,21 @@ WORKDIR /app
 COPY . .
 
 RUN go mod tidy
-
 RUN go build -o final-project-enigma
 
 FROM alpine:latest
 
-RUN apk add --no-cache bash
-
 WORKDIR /app
 
 COPY --from=builder /app/final-project-enigma /app/final-project-enigma
+COPY .env /app/.env
+COPY wait-for-postgres.sh /app/wait-for-postgres.sh
 
-COPY wait-for-it.sh /app/wait-for-it.sh
-
-RUN chmod +x /app/wait-for-it.sh
+# Install netcat (jika dibutuhkan)
+RUN apk add --no-cache netcat-openbsd
 
 EXPOSE 8080
 
-ENTRYPOINT ["/app/wait-for-it.sh", "postgres:5432", "--", "/app/final-project-enigma"]
+# Menjalankan skrip wait-for-postgres.sh untuk menunggu ketersediaan PostgreSQL, 
+# kemudian menjalankan aplikasi final-project-enigma
+CMD ["/app/wait-for-postgres.sh", "postgres", "5432", "--", "/app/final-project-enigma"]
