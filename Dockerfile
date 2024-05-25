@@ -17,6 +17,7 @@ RUN apk add --no-cache bash
 WORKDIR /app
 
 COPY --from=builder /app/final-project-enigma /app/final-project-enigma
+
 COPY wait-for-it.sh /app/wait-for-it.sh
 
 RUN chmod +x /app/wait-for-it.sh
