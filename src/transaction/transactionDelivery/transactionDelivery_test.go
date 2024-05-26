@@ -1,9 +1,8 @@
-package transactionDelivery_test
+package transactionDelivery
 
 import (
 	"errors"
 	"final-project-enigma/model/dto/transactionDtos"
-	"final-project-enigma/src/transaction/transactionDelivery"
 	"final-project-enigma/src/transaction/transactionUseCase"
 	"net/http"
 	"net/http/httptest"
@@ -41,7 +40,7 @@ func TestGetTopUpTransaction(t *testing.T) {
 
 	mockRepo := &mockTransactionRepository{}
 	transactionUC := transactionUseCase.NewTransactionUseCase(mockRepo)
-	transactionDelivery.NewTransactionDelivery(router.Group(""), transactionUC)
+	NewTransactionDelivery(router.Group(""), transactionUC)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/transaction/topup?page=1&limit=10", nil)
@@ -58,7 +57,7 @@ func TestGetWalletTransaction(t *testing.T) {
 
 	mockRepo := &mockTransactionRepository{}
 	transactionUC := transactionUseCase.NewTransactionUseCase(mockRepo)
-	transactionDelivery.NewTransactionDelivery(router.Group(""), transactionUC)
+	NewTransactionDelivery(router.Group(""), transactionUC)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/transaction/wallet?page=1&limit=10", nil)
@@ -75,7 +74,7 @@ func TestGetTransaction(t *testing.T) {
 
 	mockRepo := &mockTransactionRepository{}
 	transactionUC := transactionUseCase.NewTransactionUseCase(mockRepo)
-	transactionDelivery.NewTransactionDelivery(router.Group(""), transactionUC)
+	NewTransactionDelivery(router.Group(""), transactionUC)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/transaction?page=1&limit=10", nil)
