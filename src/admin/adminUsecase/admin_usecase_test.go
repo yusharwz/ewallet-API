@@ -39,7 +39,7 @@ func (m *MockAdminRepository) GetWalletByParams(params adminDto.GetWalletParams)
 }
 
 // GetpaymentMethodByParams implements admin.AdminRepository.
-func (m *MockAdminRepository) GetpaymentMethodByParams(params adminDto.GetpaymentMethodParams) ([]adminDto.PaymentMethod, error) {
+func (m *MockAdminRepository) GetpaymentMethodByParams(params adminDto.GetPaymentMethodParams) ([]adminDto.PaymentMethod, error) {
 	args := m.Called(params)
 	return args.Get(0).([]adminDto.PaymentMethod), args.Error(1)
 }
@@ -223,7 +223,7 @@ func TestGetpaymentMethodByParams_Success(t *testing.T) {
 	mockRepo := new(MockAdminRepository)
 	usecase := adminUsecase.NewAdminUsecase(mockRepo)
 
-	params := adminDto.GetpaymentMethodParams{
+	params := adminDto.GetPaymentMethodParams{
 		// Isi parameter sesuai kebutuhan pengujian
 		ID: "123", // Contoh parameter UserID
 		// Isi parameter lainnya sesuai kebutuhan
@@ -255,7 +255,7 @@ func TestGetpaymentMethodByParams_Failure(t *testing.T) {
 	mockRepo := new(MockAdminRepository)
 	usecase := adminUsecase.NewAdminUsecase(mockRepo)
 
-	params := adminDto.GetpaymentMethodParams{
+	params := adminDto.GetPaymentMethodParams{
 		// Isi parameter sesuai kebutuhan pengujian
 		ID: "123", // Contoh parameter UserID
 		// Isi parameter lainnya sesuai kebutuhan

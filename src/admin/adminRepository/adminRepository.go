@@ -99,7 +99,9 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	if params.Username != "" && len(users) == 0 {
 		return nil, fmt.Errorf("user with username '%s' not found", params.Username)
 	}
-
+    if params.Fullname != "" && len(users) == 0 {
+		return nil, fmt.Errorf("user with fullname '%s' not found", params.Fullname)
+	}
 	if params.Email != "" && len(users) == 0 {
 		return nil, fmt.Errorf("user with email '%s' not found", params.Email)
 	}
@@ -189,7 +191,7 @@ func (r *adminRepo) UpdateUser(user adminDto.User) error {
 	return nil
 }
 
-func (r *adminRepo) GetpaymentMethodByParams(params adminDto.GetpaymentMethodParams) ([]adminDto.PaymentMethod, error) {
+func (r *adminRepo) GetpaymentMethodByParams(params adminDto.GetPaymentMethodParams) ([]adminDto.PaymentMethod, error) {
 	query := "SELECT id, payment_name,created_at FROM payment_method WHERE 1=1 AND deleted_at IS NULL"
 	var args []interface{}
 	argIndex := 1

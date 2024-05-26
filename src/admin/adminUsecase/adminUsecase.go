@@ -52,7 +52,7 @@ func (u *adminUC) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.Us
 	}
 	return users, nil
 }
-func (u *adminUC) GetpaymentMethodByParams(params adminDto.GetpaymentMethodParams) ([]adminDto.PaymentMethod, error) {
+func (u *adminUC) GetpaymentMethodByParams(params adminDto.GetPaymentMethodParams) ([]adminDto.PaymentMethod, error) {
 	paymentMethod, err := u.adminRepo.GetpaymentMethodByParams(params)
 	if err != nil {
 		return nil, err
