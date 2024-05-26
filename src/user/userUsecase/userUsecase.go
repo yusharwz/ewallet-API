@@ -7,6 +7,7 @@ import (
 	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/src/user"
 	"strconv"
+
 	"github.com/rs/zerolog/log"
 )
 

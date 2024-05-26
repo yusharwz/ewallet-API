@@ -258,7 +258,6 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 
 		transaction.Detail = userDto.TransactionDetail{}
 
-		// Query for payment method details
 		paymentMethodQuery := `
 			SELECT
 				pm.payment_name, tt.payment_url
@@ -282,7 +281,6 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 			}
 		}
 
-		// Query for wallet transaction details
 		walletTransactionQuery := `
 			SELECT
 				(SELECT u.username FROM users u JOIN wallets wf ON u.id = wf.user_id WHERE wf.id = wt.from_wallet_id) AS sender_name,
@@ -312,7 +310,6 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 			transaction.Detail.RecipientId = recipientId.String
 		}
 
-		// Query for merchant transaction details
 		merchantTransactionQuery := `
 			SELECT
 				m.merchant_name
@@ -502,13 +499,13 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	err = tx.QueryRow(balanceQuery, req.FromWalletId).Scan(&senderBalance)
 	if err != nil {
 		tx.Rollback()
-		log.Error().Msg("disini: %v"+ err.Error())
+		log.Error().Msg("disini: %v" + err.Error())
 		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("disini: %v", err)
 	}
 
 	amount, err := strconv.ParseFloat(req.Amount, 64)
 	if err != nil {
-		log.Error().Msg("invalid amount: %v"+ err.Error())
+		log.Error().Msg("invalid amount: %v" + err.Error())
 		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("invalid amount: %v", err)
 	}
 
@@ -599,12 +596,12 @@ func (repo *userRepository) CreateMerchantTransaction(req userDto.MerchantTransa
 
 	var validMerchant bool
 	checkMerchantQuery := `
-        SELECT EXISTS (
+      SELECT EXISTS (
             SELECT 1
             FROM merchant
             WHERE id = $1
-        )
-    `
+      )
+   `
 	err = tx.QueryRow(checkMerchantQuery, req.MerchantId).Scan(&validMerchant)
 	if err != nil {
 		tx.Rollback()
@@ -620,10 +617,10 @@ func (repo *userRepository) CreateMerchantTransaction(req userDto.MerchantTransa
 
 	var currentBalance float64
 	checkBalanceQuery := `
-        SELECT balance
-        FROM wallets
-        WHERE user_id = $1
-    `
+      SELECT balance
+      FROM wallets
+      WHERE user_id = $1
+   `
 	err = tx.QueryRow(checkBalanceQuery, req.UserId).Scan(&currentBalance)
 	if err != nil {
 		tx.Rollback()
@@ -637,10 +634,10 @@ func (repo *userRepository) CreateMerchantTransaction(req userDto.MerchantTransa
 	}
 
 	transactionQuery := `
-        INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
-        VALUES ($1, 'debit', $2, $3, $4, 'success')
-        RETURNING id
-    `
+      INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
+      VALUES ($1, 'debit', $2, $3, $4, 'success')
+      RETURNING id
+   `
 	var transactionID string
 	err = tx.QueryRow(transactionQuery, req.UserId, req.Amount, req.Description, time.Now()).Scan(&transactionID)
 	if err != nil {
@@ -649,9 +646,9 @@ func (repo *userRepository) CreateMerchantTransaction(req userDto.MerchantTransa
 	}
 
 	merchantTransactionQuery := `
-        INSERT INTO merchant_transactions (transaction_id, merchant_id, created_at)
-        VALUES ($1, $2, $3)
-    `
+      INSERT INTO merchant_transactions (transaction_id, merchant_id, created_at)
+      VALUES ($1, $2, $3)
+   `
 	_, err = tx.Exec(merchantTransactionQuery, transactionID, req.MerchantId, time.Now())
 	if err != nil {
 		tx.Rollback()
@@ -659,10 +656,10 @@ func (repo *userRepository) CreateMerchantTransaction(req userDto.MerchantTransa
 	}
 
 	updateBalanceQuery := `
-        UPDATE wallets
-        SET balance = balance - $1
-        WHERE user_id = $2
-    `
+      UPDATE wallets
+      SET balance = balance - $1
+      WHERE user_id = $2
+   `
 	_, err = tx.Exec(updateBalanceQuery, req.Amount, req.UserId)
 	if err != nil {
 		tx.Rollback()
@@ -702,10 +699,10 @@ func (repo *userRepository) DeleteUser(id string) error {
 
 	// Update users table
 	queryUsers := `
-        UPDATE users
-        SET deleted_at = $1, updated_at = $1
-        WHERE id = $2 AND deleted_at IS NULL
-    `
+      UPDATE users
+      SET deleted_at = $1, updated_at = $1
+      WHERE id = $2 AND deleted_at IS NULL
+   `
 	if _, err := tx.Exec(queryUsers, currentTime, id); err != nil {
 		tx.Rollback()
 		return err
@@ -713,10 +710,10 @@ func (repo *userRepository) DeleteUser(id string) error {
 
 	// Update wallets table
 	queryWallets := `
-        UPDATE wallets
-        SET deleted_at = $1, updated_at = $1
-        WHERE user_id = $2 AND deleted_at IS NULL
-    `
+      UPDATE wallets
+      SET deleted_at = $1, updated_at = $1
+      WHERE user_id = $2 AND deleted_at IS NULL
+   `
 	if _, err := tx.Exec(queryWallets, currentTime, id); err != nil {
 		tx.Rollback()
 		return err
