@@ -99,7 +99,9 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	if params.Username != "" && len(users) == 0 {
 		return nil, fmt.Errorf("user with username '%s' not found", params.Username)
 	}
-
+    if params.Fullname != "" && len(users) == 0 {
+		return nil, fmt.Errorf("user with fullname '%s' not found", params.Fullname)
+	}
 	if params.Email != "" && len(users) == 0 {
 		return nil, fmt.Errorf("user with email '%s' not found", params.Email)
 	}
