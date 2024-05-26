@@ -9,6 +9,7 @@ import (
 	"final-project-enigma/pkg/helper/sendEmail"
 	"final-project-enigma/pkg/helper/sendWhatappTwilio"
 	"final-project-enigma/src/auth"
+	"github.com/rs/zerolog/log"
 )
 
 type authUC struct {
@@ -43,6 +44,7 @@ func (usecase *authUC) LoginCodeReqEmail(email string) error {
 		if err != nil {
 			return err
 		}
+		log.Error().Msg("account has not been activated, please check the email inbox for the activation link")
 		return errors.New("account has not been activated, please check the email inbox for the activation link")
 	}
 
@@ -63,10 +65,12 @@ func (usecase *authUC) LoginCodeReqEmail(email string) error {
 	emailResp, err := sendEmail.SendEmail(email, code)
 
 	if err != nil {
+		log.Error().Msg("failed to send email")
 		return errors.New("failed to send email")
 	}
 
 	if !emailResp {
+		log.Error().Msg("failed to send email")
 		return errors.New("failed to send email")
 	}
 	return nil
@@ -97,6 +101,7 @@ func (usecase *authUC) LoginCodeReqSMS(pnumber string) error {
 		if err != nil {
 			return err
 		}
+		log.Error().Msg("account has not been activated, please check the email inbox for the activation link")
 		return errors.New("account has not been activated, please check the email inbox for the activation link")
 	}
 
@@ -136,6 +141,7 @@ func (usecase *authUC) LoginReq(req userDto.UserLoginRequest) (resp userDto.User
 
 	err = hashingPassword.ComparePassword(resp.Pin, req.Pin)
 	if err != nil {
+		log.Error().Msg("invalid pin or verification code")
 		return resp, errors.New("invalid pin or verification code")
 	}
 
@@ -247,6 +253,7 @@ func (usecase *authUC) ForgotPinReqUC(req userDto.ForgetPinReq) (err error) {
 func (usecase *authUC) ResetPinUC(req userDto.ForgetPinParams) error {
 
 	if req.NewPin != req.RetypeNewPin {
+		log.Error().Msg("new pin and retype new pin not match")
 		return errors.New("new pin and retype new pin not match")
 	}
 
