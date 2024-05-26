@@ -130,6 +130,7 @@ type (
 		PaymentMethod string `json:"paymentMethod,omitempty"`
 		PaymentURL    string `json:"paymentURL,omitempty"`
 		FromWalletId  string `json:"fromWalletId,omitempty"`
+		MerchantName  string `json:"merchantName,omitempty"`
 		ToWalletId    string `json:"toWalletId,omitempty"`
 	}
 
@@ -138,6 +139,17 @@ type (
 		Amount          float64 `json:"amount" binding:"required,min=5"`
 		Description     string  `json:"description"`
 		PaymentMethodId string  `json:"paymentMethodId" binding:"required,min=15"`
+	}
+
+	MerchantTransactionRequest struct {
+		UserId      string  `json:"userId"`
+		Amount      float64 `json:"amount" binding:"required,min=5"`
+		Description string  `json:"description"`
+		MerchantId  string  `json:"merchantId" binding:"required,min=15"`
+	}
+
+	MerchantTransactionResponse struct {
+		TransactionId string `json:"transactionId"`
 	}
 
 	TopUpTransactionResponse struct {

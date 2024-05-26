@@ -6,6 +6,7 @@ import (
 	"final-project-enigma/src/payment"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 type paymentRepository struct {
@@ -49,8 +50,8 @@ func (repo *paymentRepository) UpdateBalance(orderID, amountStr string) error {
 		return err
 	}
 
-	query = `UPDATE wallets SET balance = balance + $1 WHERE id = $2`
-	_, err = repo.db.Exec(query, amount, walletID)
+	query = `UPDATE wallets SET balance = balance + $1, updated_at = $2 WHERE id = $3`
+	_, err = repo.db.Exec(query, amount, time.Now(), walletID)
 	if err != nil {
 		return err
 	}

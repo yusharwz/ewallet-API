@@ -27,6 +27,7 @@ func NewUserDelivery(v1Group *gin.RouterGroup, userUC user.UserUsecase) {
 		userGroup.GET("/balance", middleware.JwtAuthWithRoles("USER"), handler.getBalanceInfo)
 		userGroup.POST("/balance/topup", middleware.JwtAuthWithRoles("USER"), handler.topupTransactionRequest)
 		userGroup.POST("/balance/transfer", middleware.JwtAuthWithRoles("USER"), handler.walletTransactionRequest)
+		userGroup.POST("/balance/merchant-payment", middleware.JwtAuthWithRoles("USER"), handler.merchantTransactionRequest)
 		userGroup.PUT("/info/update", middleware.JwtAuthWithRoles("USER"), handler.updateDataUser)
 		userGroup.DELETE("/delete", middleware.JwtAuthWithRoles("USER"), handler.deletedUser)
 	}
@@ -52,7 +53,7 @@ func (u *userDelivery) updateDataUser(ctx *gin.Context) {
 		return
 	}
 
-	json.NewResponSucces(ctx, nil, "Succes update data", "01", "01")
+	json.NewResponSucces(ctx, nil, "Success update data", "01", "01")
 }
 
 func (u *userDelivery) getDataUser(ctx *gin.Context) {
@@ -64,7 +65,7 @@ func (u *userDelivery) getDataUser(ctx *gin.Context) {
 		return
 	}
 
-	json.NewResponSucces(ctx, resp, "Succes get data", "01", "01")
+	json.NewResponSucces(ctx, resp, "Success get data", "01", "01")
 }
 
 func (u *userDelivery) uploadProfilImage(ctx *gin.Context) {
@@ -86,7 +87,7 @@ func (u *userDelivery) uploadProfilImage(ctx *gin.Context) {
 		json.NewResponseError(ctx, err.Error(), "02", "02")
 		return
 	}
-	json.NewResponSucces(ctx, nil, "Succes upload image", "01", "01")
+	json.NewResponSucces(ctx, nil, "Success upload image", "01", "01")
 
 }
 
@@ -99,7 +100,7 @@ func (u *userDelivery) getBalanceInfo(ctx *gin.Context) {
 		return
 	}
 
-	json.NewResponSucces(ctx, resp, "Succes get balance info", "01", "01")
+	json.NewResponSucces(ctx, resp, "Success get balance info", "01", "01")
 }
 
 func (u *userDelivery) getTransactionsDetail(ctx *gin.Context) {
@@ -166,6 +167,28 @@ func (u *userDelivery) walletTransactionRequest(ctx *gin.Context) {
 		return
 	}
 	json.NewResponSucces(ctx, resp, "Transfer succes", "01", "01")
+}
+
+func (u *userDelivery) merchantTransactionRequest(ctx *gin.Context) {
+	authHeader := ctx.GetHeader("Authorization")
+	var req userDto.MerchantTransactionRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+		json.NewResponseError(ctx, "json request body required", "01", "02")
+		return
+	}
+
+	transactionId, err := u.userUC.MerchantTransaction(req, authHeader)
+	if err != nil {
+		json.NewResponseForbidden(ctx, err.Error(), "01", "01")
+		return
+	}
+	json.NewResponSucces(ctx, transactionId, "Payment merchant success", "01", "01")
 }
 
 func (u *userDelivery) deletedUser(ctx *gin.Context) {
