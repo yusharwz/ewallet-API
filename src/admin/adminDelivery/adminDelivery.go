@@ -132,7 +132,7 @@ func (d *adminDelivery) GetUsersByParams(c *gin.Context) {
 }
 
 func (d *adminDelivery) GetpaymentMethodByParams(c *gin.Context) {
-	params := adminDto.GetpaymentMethodParams{
+	params := adminDto.GetPaymentMethodParams{
 		ID:          c.Query("id"),
 		PaymentName: c.Query("payment_name"),
 		CreatedAt:   c.Query("created_at"),

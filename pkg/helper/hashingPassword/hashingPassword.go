@@ -19,3 +19,19 @@ func ComparePassword(hashedPassword, password string) error {
 	}
 	return nil
 }
+
+type Hasher interface {
+	HashPassword(password string) (string, error)
+}
+
+
+func HashPasswordMock(password string) (string, error) {
+	// Implementasi hashing password
+	return "hashedPassword", nil
+}
+
+type BcryptHasher struct{}
+
+func (b *BcryptHasher) HashPassword(password string) (string, error) {
+    return HashPassword(password) // fungsi asli
+}

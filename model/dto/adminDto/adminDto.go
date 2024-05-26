@@ -34,10 +34,10 @@ type (
 		Fullname    string `json:"fullname" binding:"required"`
 		Username    string `json:"username" binding:"required"`
 		Email       string `json:"email" binding:"required,email"`
-		Pin         string `json:"pin" binding:"required,password"`
-		PhoneNumber string `json:"phone_number" binding:"required,nomorHp"`
+		Pin         string `json:"pin" binding:"required"`
+		PhoneNumber string `json:"phone_number" binding:"required"`
 	}
-	GetpaymentMethodParams struct {
+	GetPaymentMethodParams struct {
 		ID          string `json:"id"`
 		PaymentName string `json:"payment_name"`
 		CreatedAt   string `json:"createdAt"`

@@ -39,6 +39,7 @@ type (
 	UserUpdateReq struct {
 		UserId      string
 		Fullname    string `json:"fullname"`
+		Username    string `json:"username"`
 		Email       string `json:"email"`
 		PhoneNumber string `json:"phoneNumber"`
 	}
@@ -49,7 +50,7 @@ type (
 		Email       string `json:"email" binding:"required,email"`
 		Pin         string `json:"pin" binding:"required,pin,min=6,max=6"`
 		PhoneNumber string `json:"phoneNumber" binding:"required,nomorHp,min=8,max=17"`
-		Roles       string
+		Roles       string `json:"roles"`
 	}
 
 	ActivatedAccountReq struct {
@@ -129,6 +130,7 @@ type (
 		PaymentMethod string `json:"paymentMethod,omitempty"`
 		PaymentURL    string `json:"paymentURL,omitempty"`
 		FromWalletId  string `json:"fromWalletId,omitempty"`
+		MerchantName  string `json:"merchantName,omitempty"`
 		ToWalletId    string `json:"toWalletId,omitempty"`
 	}
 
@@ -137,6 +139,17 @@ type (
 		Amount          float64 `json:"amount" binding:"required,min=5"`
 		Description     string  `json:"description"`
 		PaymentMethodId string  `json:"paymentMethodId" binding:"required,min=15"`
+	}
+
+	MerchantTransactionRequest struct {
+		UserId      string  `json:"userId"`
+		Amount      float64 `json:"amount" binding:"required,min=5"`
+		Description string  `json:"description"`
+		MerchantId  string  `json:"merchantId" binding:"required,min=15"`
+	}
+
+	MerchantTransactionResponse struct {
+		TransactionId string `json:"transactionId"`
 	}
 
 	TopUpTransactionResponse struct {
