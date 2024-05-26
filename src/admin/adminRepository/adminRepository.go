@@ -15,6 +15,10 @@ type adminRepo struct {
 	db *sql.DB
 }
 
+func NewAdminRepository(db *sql.DB) *adminRepo {
+	return &adminRepo{db}
+}
+
 func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.User, error) {
 	query := "SELECT id, fullname, username, image_url, pin, email, phone_number, roles, status, created_at FROM users WHERE deleted_at IS NULL"
 	args := []interface{}{}
@@ -104,7 +108,7 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	if params.Username != "" && len(users) == 0 {
 		return nil, fmt.Errorf("user with username '%s' not found", params.Username)
 	}
-    if params.Fullname != "" && len(users) == 0 {
+	if params.Fullname != "" && len(users) == 0 {
 		return nil, fmt.Errorf("user with fullname '%s' not found", params.Fullname)
 	}
 	if params.Email != "" && len(users) == 0 {
@@ -429,6 +433,113 @@ func (r *adminRepo) GetWalletByParams(params adminDto.GetWalletParams) ([]adminD
 	return wallets, nil
 }
 
-func NewAdminRepository(db *sql.DB) *adminRepo {
-	return &adminRepo{db}
+func (r *adminRepo) GetTransaction(page int, limit int) ([]adminDto.Transaction, int, error) {
+	offset := (page - 1) * limit
+	rows, err := r.db.Query("select id, user_id, transaction_type, amount, description, status, created_at from transactions LIMIT $1 OFFSET $2", limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get data :%w", err)
+	}
+	defer rows.Close()
+
+	var transactions []adminDto.Transaction
+	for rows.Next() {
+		var data adminDto.Transaction
+		err := rows.Scan(&data.Id, &data.UserId, &data.TransactionType, &data.Amount, &data.Description, &data.Status, &data.Created_at)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan transaction data : %w", err)
+		}
+
+		var transDetails []adminDto.TransactionDetail
+		rowDetails, err := r.db.Query("select id, transaction_id, wallet_transaction_id,topup_transaction_id, created_at from transactions_detail", data.Id)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to querytransaction detail data: %w", err)
+		}
+		defer rowDetails.Close()
+
+		for rowDetails.Next() {
+			var transDetail adminDto.TransactionDetail
+			var walletTransactionID, topupTransactionID sql.NullString
+			err := rowDetails.Scan(&transDetail.Id, &transDetail.TransactionId, &walletTransactionID, &topupTransactionID, &transDetail.Created_at)
+			if err != nil {
+				return nil, 0, fmt.Errorf("failed to scan transaction detail data: %w", err)
+			}
+
+			if walletTransactionID.Valid {
+				transDetail.WalletTransactionId = walletTransactionID.String
+			}
+			if topupTransactionID.Valid {
+				transDetail.TopUpTransactionId = topupTransactionID.String
+			}
+
+			transDetails = append(transDetails, transDetail)
+		}
+
+		data.TransactionDetail = transDetails
+
+		transactions = append(transactions, data)
+	}
+
+	total := len(transactions)
+
+	return transactions, total, nil
+}
+
+func (r *adminRepo) GetWalletTransaction(page int, limit int) ([]adminDto.WalletTransaction, int, error) {
+	offset := (page - 1) * limit
+	rows, err := r.db.Query("select id, transaction_id, from_wallet_id, to_wallet_id, created_at from wallet_transactions limit $1 offset $2", limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query wallet transaction data : %w", err)
+	}
+	defer rows.Close()
+
+	var transactionsWallet []adminDto.WalletTransaction
+	for rows.Next() {
+		var data adminDto.WalletTransaction
+		err := rows.Scan(&data.Id, &data.TransactionId, &data.FromWalletId, &data.ToWalletId, &data.Created_at)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan wallet transanction data:%w", err)
+		}
+		transaction := adminDto.WalletTransaction{
+			Id:            data.Id,
+			TransactionId: data.TransactionId,
+			FromWalletId:  data.FromWalletId,
+			ToWalletId:    data.ToWalletId,
+			Created_at:    data.Created_at,
+		}
+
+		transactionsWallet = append(transactionsWallet, transaction)
+	}
+
+	total := len(transactionsWallet)
+	return transactionsWallet, total, nil
+}
+
+func (r *adminRepo) GetTopUpTransaction(page int, limit int) ([]adminDto.TopUpTransaction, int, error) {
+	offset := (page - 1) * limit
+	rows, err := r.db.Query("select id, transaction_id, payment_method_id, created_at from topup_transactions limit $1 offset $2", limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query get topup transaction data:%w", err)
+	}
+	defer rows.Close()
+
+	var transactionsTopUp []adminDto.TopUpTransaction
+	for rows.Next() {
+		var data adminDto.TopUpTransaction
+		err := rows.Scan(&data.Id, &data.TransactionId, &data.PaymentMethodId, &data.Created_at)
+		if err != nil {
+			return nil, 0, err
+		}
+		transaction := adminDto.TopUpTransaction{
+			Id:              data.Id,
+			TransactionId:   data.TransactionId,
+			PaymentMethodId: data.PaymentMethodId,
+			Created_at:      data.Created_at,
+		}
+
+		transactionsTopUp = append(transactionsTopUp, transaction)
+
+	}
+
+	total := len(transactionsTopUp)
+	return transactionsTopUp, total, nil
 }

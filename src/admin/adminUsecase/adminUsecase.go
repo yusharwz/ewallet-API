@@ -4,6 +4,7 @@ import (
 	"final-project-enigma/model/dto/adminDto"
 	"final-project-enigma/pkg/helper/hashingPassword"
 	"final-project-enigma/src/admin"
+	"log"
 )
 
 type adminUC struct {
@@ -95,4 +96,32 @@ func (u *adminUC) UpdatePaymentMethod(request adminDto.UpdatePaymentRequest) err
 	}
 
 	return nil
+}
+
+func (u *adminUC) GetTransaction(page int, limit int) ([]adminDto.Transaction, int, error) {
+	results, total, err := u.adminRepo.GetTransaction(page, limit)
+	if err != nil {
+		// Log kesalahan secara rinci
+		log.Printf("Failed to get transactions from repository: %v", err)
+		return nil, 0, err
+	}
+	return results, total, nil
+}
+
+func (u *adminUC) GetTopUpTransaction(page int, limit int) ([]adminDto.TopUpTransaction, int, error) {
+	results, total, err := u.adminRepo.GetTopUpTransaction(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
+}
+
+func (u *adminUC) GetWalletTransaction(page int, limit int) ([]adminDto.WalletTransaction, int, error) {
+	results, total, err := u.adminRepo.GetWalletTransaction(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
 }

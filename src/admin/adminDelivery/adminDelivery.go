@@ -27,6 +27,10 @@ func NewAdminDelivery(router *gin.RouterGroup, adminUsecase admin.AdminUsecase) 
 		adminGroup.PUT("/paymentMethod/:id", handler.UpdatePaymentMethod)
 		adminGroup.DELETE("/paymentMethod/:id", handler.SoftDeletePaymentMethod)
 		adminGroup.GET("/wallet", handler.GetWalletByParams)
+		//transaction
+		adminGroup.GET("/", handler.GetTransaction)
+		adminGroup.GET("/wallet-transaction", handler.GetWalletTransaction)
+		adminGroup.GET("/topup-transaction", handler.GetTopUpTransaction)
 	}
 }
 
@@ -184,4 +188,145 @@ func (d *adminDelivery) GetWalletByParams(c *gin.Context) {
 	}
 
 	json.NewResponSucces(c, wallets, "Success get wallet data", "01", "01")
+}
+
+func (d *adminDelivery) GetTransaction(ctx *gin.Context) {
+	var req adminDto.Transaction
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+	}
+
+	page, err := strconv.Atoi(ctx.Query("page"))
+	if err != nil || page <= 0 {
+		page = 1
+		json.NewResponseError(ctx, "data not found", "01", "02")
+		return
+	}
+
+	limit, err := strconv.Atoi(ctx.Query("limit"))
+	if err != nil {
+		limit = 10
+	}
+
+	transactions, total, err := d.adminUsecase.GetTransaction(page, limit)
+	if err != nil {
+		json.NewResponseError(ctx, err.Error(), "01", "02")
+		return
+	}
+
+	nextPage := page
+	if len(transactions) == limit {
+		nextPage++
+	}
+
+	paging := gin.H{
+		"page":       page,
+		"total data": total,
+		"next page":  nextPage,
+	}
+
+	responseData := gin.H{
+		"transactions": transactions,
+		"paging":       paging,
+	}
+
+	json.NewResponSucces(ctx, responseData, "success", "01", "01")
+}
+
+func (d *adminDelivery) GetWalletTransaction(ctx *gin.Context) {
+	var req adminDto.WalletTransaction
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+	}
+
+	page, err := strconv.Atoi(ctx.Query("page"))
+	if err != nil || page <= 0 {
+		page = 1
+		json.NewResponseError(ctx, "data not found", "01", "02")
+		return
+	}
+
+	limit, err := strconv.Atoi(ctx.Query("limit"))
+	if err != nil {
+		limit = 10
+	}
+
+	transactions, total, err := d.adminUsecase.GetWalletTransaction(page, limit)
+	if err != nil {
+		json.NewResponseError(ctx, err.Error(), "01", "02")
+		return
+	}
+
+	nextPage := page
+	if len(transactions) == limit {
+		nextPage++
+	}
+
+	paging := gin.H{
+		"page":       page,
+		"total data": total,
+		"next page":  nextPage,
+	}
+
+	ResponseData := gin.H{
+		"transactions": transactions,
+		"paging":       paging,
+	}
+
+	json.NewResponSucces(ctx, ResponseData, "success", "01", "01")
+}
+
+func (d *adminDelivery) GetTopUpTransaction(ctx *gin.Context) {
+	var req adminDto.TopUpTransaction
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		validationError := validation.GetValidationError(err)
+		if len(validationError) > 0 {
+			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
+			return
+		}
+	}
+
+	page, err := strconv.Atoi(ctx.Query("page"))
+	if err != nil || page <= 0 {
+		page = 1
+		// json.NewResponseError(ctx, "data not found", "01", "01")
+		// return
+	}
+
+	limit, err := strconv.Atoi(ctx.Query("limit"))
+	if err != nil {
+		limit = 10
+	}
+
+	transactions, total, err := d.adminUsecase.GetTopUpTransaction(page, limit)
+	if err != nil {
+		json.NewResponseError(ctx, "data not found", "01", "02")
+		return
+	}
+
+	nextPage := page
+	if len(transactions) == limit {
+		nextPage++
+	}
+
+	paging := gin.H{
+		"page":       nextPage,
+		"total data": total,
+		"next page":  nextPage,
+	}
+
+	ResponseData := gin.H{
+		"transactions": transactions,
+		"paging":       paging,
+	}
+
+	json.NewResponSucces(ctx, ResponseData, "success", "01", "01")
 }
