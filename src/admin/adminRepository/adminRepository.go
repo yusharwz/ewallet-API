@@ -8,6 +8,7 @@ import (
 
 	"fmt"
 	"strconv"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -61,12 +62,12 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	if params.StartDate != "" && params.EndDate != "" {
 		startDate, err := time.Parse("2006-01-02", params.StartDate)
 		if err != nil {
-			log.Error().Msg("invalid start date format: %s"+ err.Error())
+			log.Error().Msg("invalid start date format: %s" + err.Error())
 			return nil, fmt.Errorf("invalid start date format: %s", err.Error())
 		}
 		endDate, err := time.Parse("2006-01-02", params.EndDate)
 		if err != nil {
-			log.Error().Msg("invalid start date format: %s"+ err.Error())
+			log.Error().Msg("invalid start date format: %s" + err.Error())
 			return nil, fmt.Errorf("invalid end date format: %s", err.Error())
 		}
 		query += " AND created_at BETWEEN $" + strconv.Itoa(len(args)+1) + " AND $" + strconv.Itoa(len(args)+2)
@@ -76,12 +77,12 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	if params.Page != "" && params.Limit != "" {
 		page, err := strconv.Atoi(params.Page)
 		if err != nil {
-			log.Error().Msg("invalid page parameter: %s"+ err.Error())
+			log.Error().Msg("invalid page parameter: %s" + err.Error())
 			return nil, fmt.Errorf("invalid page parameter: %s", err.Error())
 		}
 		limit, err := strconv.Atoi(params.Limit)
 		if err != nil {
-			log.Error().Msg("invalid limit parameter: %s"+ err.Error())
+			log.Error().Msg("invalid limit parameter: %s" + err.Error())
 			return nil, fmt.Errorf("invalid limit parameter: %s", err.Error())
 		}
 		offset := (page - 1) * limit
@@ -95,12 +96,18 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	}
 	defer rows.Close()
 
+	var image sql.NullString
+
 	var users []adminDto.User
 	for rows.Next() {
 		var user adminDto.User
-		err := rows.Scan(&user.ID, &user.Fullname, &user.Username, &user.ImageURL, &user.Pin, &user.Email, &user.PhoneNumber, &user.Roles, &user.Status, &user.CreatedAt)
+		err := rows.Scan(&user.ID, &user.Fullname, &user.Username, &image, &user.Pin, &user.Email, &user.PhoneNumber, &user.Roles, &user.Status, &user.CreatedAt)
 		if err != nil {
 			return nil, err
+		}
+
+		if image.Valid {
+			user.ImageURL = image.String
 		}
 		users = append(users, user)
 	}

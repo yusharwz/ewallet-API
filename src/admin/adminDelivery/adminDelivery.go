@@ -28,7 +28,7 @@ func NewAdminDelivery(router *gin.RouterGroup, adminUsecase admin.AdminUsecase) 
 		adminGroup.DELETE("/paymentMethod/:id", handler.SoftDeletePaymentMethod)
 		adminGroup.GET("/wallet", handler.GetWalletByParams)
 		//transaction
-		adminGroup.GET("/", handler.GetTransaction)
+		adminGroup.GET("/transaction", handler.GetTransaction)
 		adminGroup.GET("/wallet-transaction", handler.GetWalletTransaction)
 		adminGroup.GET("/topup-transaction", handler.GetTopUpTransaction)
 	}

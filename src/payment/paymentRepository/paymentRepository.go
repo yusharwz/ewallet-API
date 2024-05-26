@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	"github.com/rs/zerolog/log"
+
 )
 
 type paymentRepository struct {
@@ -24,6 +26,7 @@ func (repo *paymentRepository) UpdateTransactionStatus(orderID string, status st
 	query := `UPDATE transactions SET status = $1 WHERE id = $2`
 	_, err := repo.db.Exec(query, status, orderID)
 	if err != nil {
+		log.Error().Msg("failed to update transaction status")
 		return errors.New("failed to update transaction status")
 	}
 
@@ -33,6 +36,7 @@ func (repo *paymentRepository) UpdateTransactionStatus(orderID string, status st
 func (repo *paymentRepository) UpdateBalance(orderID, amountStr string) error {
 	amount, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
+		log.Error().Msg("invalid amount: %v" + err.Error())
 		return fmt.Errorf("invalid amount: %v", err)
 	}
 

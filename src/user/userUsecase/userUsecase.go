@@ -7,6 +7,7 @@ import (
 	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/src/user"
 	"strconv"
+	"github.com/rs/zerolog/log"
 )
 
 type userUC struct {
@@ -262,6 +263,7 @@ func (usecase *userUC) WalletTransaction(req userDto.WalletTransactionRequest, a
 
 	err = hashingPassword.ComparePassword(storedPin, req.PIN)
 	if err != nil {
+		log.Error().Msg("invalid PIN")
 		return userDto.WalletTransactionResponse{}, errors.New("invalid PIN")
 	}
 	return resp, nil

@@ -16,6 +16,7 @@ import (
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/go-resty/resty/v2"
+	"github.com/rs/zerolog/log"
 )
 
 type userRepository struct {
@@ -38,9 +39,11 @@ func (repo *userRepository) EditUserData(req userDto.UserUpdateReq) error {
 	`
 	var usernameCount int
 	if err := repo.db.QueryRow(usernameCheckQuery, req.Username, req.UserId).Scan(&usernameCount); err != nil {
+		log.Error().Msg("failed to check username")
 		return errors.New("failed to check username")
 	}
 	if usernameCount > 0 {
+		log.Error().Msg("username is already in use")
 		return errors.New("username is already in use")
 	}
 
@@ -51,9 +54,11 @@ func (repo *userRepository) EditUserData(req userDto.UserUpdateReq) error {
 	`
 	var emailCount int
 	if err := repo.db.QueryRow(emailCheckQuery, req.Email, req.UserId).Scan(&emailCount); err != nil {
+		log.Error().Msg("failed to check email")
 		return errors.New("failed to check email")
 	}
 	if emailCount > 0 {
+		log.Error().Msg("email is already in use")
 		return errors.New("email is already in use")
 	}
 
@@ -64,9 +69,11 @@ func (repo *userRepository) EditUserData(req userDto.UserUpdateReq) error {
 	`
 	var phoneCount int
 	if err := repo.db.QueryRow(phoneCheckQuery, req.PhoneNumber, req.UserId).Scan(&phoneCount); err != nil {
+		log.Error().Msg("failed to check phone number")
 		return errors.New("failed to check phone number")
 	}
 	if phoneCount > 0 {
+		log.Error().Msg("phone number is already in use")
 		return errors.New("phone number is already in use")
 	}
 
@@ -76,6 +83,7 @@ func (repo *userRepository) EditUserData(req userDto.UserUpdateReq) error {
 		WHERE id = $5
 	`
 	if _, err := repo.db.Exec(updateQuery, req.Fullname, req.Username, req.Email, req.PhoneNumber, req.UserId); err != nil {
+		log.Error().Msg("failed to update use")
 		return errors.New("failed to update user")
 	}
 
@@ -116,6 +124,7 @@ func (repo *userRepository) GetDataUserRepo(id string) (resp userDto.UserGetData
 	var images sql.NullString
 	query := "SELECT fullname, username, email, phone_number, image_url FROM users WHERE id = $1 AND deleted_at IS NULL;"
 	if err := repo.db.QueryRow(query, id).Scan(&resp.Fullname, &resp.Username, &resp.Email, &resp.PhoneNumber, &images); err != nil {
+		log.Error().Msg("fail to get data db")
 		return resp, errors.New("fail to get data db")
 	}
 
@@ -130,6 +139,7 @@ func (repo *userRepository) GetBalanceInfoRepo(id string) (resp userDto.UserGetD
 
 	query := "SELECT balance FROM wallets WHERE user_id = $1 AND deleted_at IS NULL;"
 	if err := repo.db.QueryRow(query, id).Scan(&resp.Balance); err != nil {
+		log.Error().Msg("fail to get data db")
 		return resp, errors.New("fail to get data db")
 	}
 
@@ -340,6 +350,7 @@ func (repo *userRepository) GetPaymentMethodName(id string) (metdhodName string,
 
 	query := "SELECT payment_name FROM payment_method WHERE id = $1;"
 	if err := repo.db.QueryRow(query, id).Scan(&metdhodName); err != nil {
+		log.Error().Msg("fail to get payment method name")
 		return "", errors.New("fail to get payment method name")
 	}
 
@@ -350,6 +361,7 @@ func (repo *userRepository) GetUserFullname(id string) (userFullname string, err
 
 	query := "SELECT fullname FROM users WHERE id = $1;"
 	if err := repo.db.QueryRow(query, id).Scan(&userFullname); err != nil {
+		log.Error().Msg("fail to get user fullname")
 		return "", errors.New("fail to get user fullname")
 	}
 
@@ -373,6 +385,7 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 	err = tx.QueryRow(checkPaymentMethodQuery, req.PaymentMethodId).Scan(&validPaymentMethod)
 	if err != nil {
 		tx.Rollback()
+		log.Error().Msg("payment method not registered")
 		return "", errors.New("payment method not registered")
 	}
 
@@ -452,6 +465,7 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	err = tx.QueryRow(getWalletIdQuery, req.UserId).Scan(&req.FromWalletId)
 	if err != nil {
 		tx.Rollback()
+		log.Error().Msg("disana: %v" + err.Error())
 		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("disana: %v", err)
 	}
 
@@ -460,6 +474,7 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	err = tx.QueryRow(validatePinQuery, req.UserId).Scan(&storedPin)
 	if err != nil {
 		tx.Rollback()
+		log.Error().Msg("user not found")
 		return userDto.WalletTransactionResponse{}, "", errors.New("user not found")
 	}
 
@@ -472,11 +487,13 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	err = tx.QueryRow(getRecipientWalletIdQuery, req.RecipientPhoneNumber).Scan(&req.ToWalletId)
 	if err != nil {
 		tx.Rollback()
+		log.Error().Msg("recipient not found")
 		return userDto.WalletTransactionResponse{}, "", errors.New("recipient not found")
 	}
 
 	if req.FromWalletId == req.ToWalletId {
 		tx.Rollback()
+		log.Error().Msg("sender and recipient cannot be the same")
 		return userDto.WalletTransactionResponse{}, "", errors.New("sender and recipient cannot be the same")
 	}
 
@@ -485,16 +502,19 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	err = tx.QueryRow(balanceQuery, req.FromWalletId).Scan(&senderBalance)
 	if err != nil {
 		tx.Rollback()
+		log.Error().Msg("disini: %v"+ err.Error())
 		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("disini: %v", err)
 	}
 
 	amount, err := strconv.ParseFloat(req.Amount, 64)
 	if err != nil {
+		log.Error().Msg("invalid amount: %v"+ err.Error())
 		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("invalid amount: %v", err)
 	}
 
 	if senderBalance < amount {
 		tx.Rollback()
+		log.Error().Msg("insufficient balance")
 		return userDto.WalletTransactionResponse{}, "", errors.New("insufficient balance")
 	}
 
@@ -502,6 +522,7 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	err = tx.QueryRow(balanceQuery, req.ToWalletId).Scan(&recipientBalance)
 	if err != nil {
 		tx.Rollback()
+		log.Error().Msg("recipient wallet not found")
 		return userDto.WalletTransactionResponse{}, "", errors.New("recipient wallet not found")
 	}
 
@@ -587,11 +608,13 @@ func (repo *userRepository) CreateMerchantTransaction(req userDto.MerchantTransa
 	err = tx.QueryRow(checkMerchantQuery, req.MerchantId).Scan(&validMerchant)
 	if err != nil {
 		tx.Rollback()
+		log.Error().Msg("payment method not registered")
 		return "", errors.New("payment method not registered")
 	}
 
 	if !validMerchant {
 		tx.Rollback()
+		log.Error().Msg("invalid merchant")
 		return "", errors.New("invalid merchant")
 	}
 
@@ -609,6 +632,7 @@ func (repo *userRepository) CreateMerchantTransaction(req userDto.MerchantTransa
 
 	if currentBalance < req.Amount {
 		tx.Rollback()
+		log.Error().Msg("insufficient balance")
 		return "", errors.New("insufficient balance")
 	}
 
@@ -658,12 +682,14 @@ func (repo *userRepository) DeleteUser(id string) error {
 	checkStatusQuery := `SELECT deleted_at FROM users WHERE id = $1;`
 	if err := repo.db.QueryRow(checkStatusQuery, id).Scan(&deletedAt); err != nil {
 		if err == sql.ErrNoRows {
+			log.Error().Msg("user not found")
 			return errors.New("user not found")
 		}
 		return err
 	}
 
 	if deletedAt.Valid {
+		log.Error().Msg("user already deleted")
 		return errors.New("user already deleted")
 	}
 
