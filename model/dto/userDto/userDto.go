@@ -33,7 +33,7 @@ type (
 		Pin       string `json:"pin,omitempty"`
 		Token     string `json:"token,omitempty"`
 		Roles     string `json:"roles,omitempty"`
-		Status    string `json:"status,omitempty"`
+		Status    string `json:"-"`
 	}
 
 	UserUpdateReq struct {
