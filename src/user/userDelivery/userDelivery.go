@@ -27,7 +27,8 @@ func NewUserDelivery(v1Group *gin.RouterGroup, userUC user.UserUsecase) {
 		userGroup.GET("/balance", middleware.JwtAuthWithRoles("USER"), handler.getBalanceInfo)
 		userGroup.POST("/balance/topup", middleware.JwtAuthWithRoles("USER"), handler.topupTransactionRequest)
 		userGroup.POST("/balance/transfer", middleware.JwtAuthWithRoles("USER"), handler.walletTransactionRequest)
-		userGroup.POST("/info/update", middleware.JwtAuthWithRoles("USER"), handler.updateDataUser)
+		userGroup.PUT("/info/update", middleware.JwtAuthWithRoles("USER"), handler.updateDataUser)
+		userGroup.DELETE("/delete", middleware.JwtAuthWithRoles("USER"), handler.deletedUser)
 	}
 }
 
@@ -47,7 +48,7 @@ func (u *userDelivery) updateDataUser(ctx *gin.Context) {
 
 	err := u.userUC.EditDataUserUC(authHeader, req)
 	if err != nil {
-		json.NewResponseError(ctx, err.Error(), "01", "01")
+		json.NewResponseForbidden(ctx, err.Error(), "01", "01")
 		return
 	}
 
@@ -59,7 +60,7 @@ func (u *userDelivery) getDataUser(ctx *gin.Context) {
 
 	resp, err := u.userUC.GetDataUserUC(authHeader)
 	if err != nil {
-		json.NewResponseError(ctx, "failed to get user data", "02", "02")
+		json.NewResponseError(ctx, err.Error(), "02", "02")
 		return
 	}
 
@@ -82,7 +83,7 @@ func (u *userDelivery) uploadProfilImage(ctx *gin.Context) {
 	req.File = file
 	err = u.userUC.UploadImagesRequestUC(authHeader, req)
 	if err != nil {
-		json.NewResponseError(ctx, "failed to upload image", "02", "02")
+		json.NewResponseError(ctx, err.Error(), "02", "02")
 		return
 	}
 	json.NewResponSucces(ctx, nil, "Succes upload image", "01", "01")
@@ -94,7 +95,7 @@ func (u *userDelivery) getBalanceInfo(ctx *gin.Context) {
 
 	resp, err := u.userUC.GetBalanceInfoUC(authHeader)
 	if err != nil {
-		json.NewResponseError(ctx, "failed to get user data", "02", "02")
+		json.NewResponseError(ctx, err.Error(), "02", "02")
 		return
 	}
 
@@ -115,7 +116,7 @@ func (u *userDelivery) getTransactionsDetail(ctx *gin.Context) {
 
 	resp, totalData, err := u.userUC.GetTransactionUC(authHeader, params)
 	if err != nil {
-		json.NewResponseError(ctx, "You don't have transaction history", "02", "02")
+		json.NewResponseForbidden(ctx, "No transaction record", "02", "02")
 		return
 	}
 
@@ -161,8 +162,28 @@ func (u *userDelivery) walletTransactionRequest(ctx *gin.Context) {
 
 	resp, err := u.userUC.WalletTransaction(req, authHeader)
 	if err != nil {
-		json.NewResponseError(ctx, err.Error(), "01", "01")
+		json.NewResponseForbidden(ctx, err.Error(), "01", "01")
 		return
 	}
 	json.NewResponSucces(ctx, resp, "Transfer succes", "01", "01")
+}
+
+func (u *userDelivery) deletedUser(ctx *gin.Context) {
+	authHeader := ctx.GetHeader("Authorization")
+
+	err := u.userUC.DeleteUser(authHeader)
+	if err != nil {
+		if err.Error() == "user not found" {
+			json.NewResponseError(ctx, "User not found", "404", "02")
+			return
+		}
+		if err.Error() == "user already deleted" {
+			json.NewResponseForbidden(ctx, "User already deleted", "409", "02")
+			return
+		}
+		json.NewResponseError(ctx, "Failed to delete user", "500", "02")
+		return
+	}
+
+	json.NewResponSucces(ctx, nil, "Success delete your account", "200", "01")
 }

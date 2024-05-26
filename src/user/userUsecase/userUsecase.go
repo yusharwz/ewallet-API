@@ -105,23 +105,37 @@ func (usecase *userUC) GetTransactionUC(authHeader string, params userDto.GetTra
 
 	params.UserId = userId
 
-	resp, err := usecase.userRepo.GetTransactionRepo(params)
+	resp, totalData, err := usecase.userRepo.GetTransactionRepo(params)
 	if err != nil {
 		return nil, "", err
-	}
-	for i := range resp {
-		if resp[i].Detail.RecipientId == params.UserId {
-			resp[i].TransactionType = "credit"
-		}
 	}
 
-	totalData, err := usecase.userRepo.GetTotalDataCount(params)
-	if err != nil {
-		return nil, "", err
+	var manipulatedTransactions []userDto.GetTransactionResponse
+	for _, transaction := range resp {
+		if transaction.Detail.RecipientId == userId {
+			transaction.TransactionType = "credit"
+		} else if transaction.Detail.PaymentMethod != "" {
+			transaction.TransactionType = "credit"
+		} else {
+			transaction.TransactionType = "debit"
+		}
+
+		manipulatedTransactions = append(manipulatedTransactions, transaction)
+	}
+
+	if params.TrxType != "" {
+		var filteredTransactions []userDto.GetTransactionResponse
+		for _, trx := range manipulatedTransactions {
+			if trx.TransactionType == params.TrxType {
+				filteredTransactions = append(filteredTransactions, trx)
+			}
+		}
+		manipulatedTransactions = filteredTransactions
+		totalData = len(filteredTransactions)
 	}
 
 	totalDataStr := strconv.Itoa(totalData)
-	return resp, totalDataStr, nil
+	return manipulatedTransactions, totalDataStr, nil
 }
 
 func (usecase *userUC) TopUpTransaction(req userDto.TopUpTransactionRequest, authHeader string) (userDto.MidtransSnapResp, error) {
@@ -249,4 +263,12 @@ func (usecase *userUC) WalletTransaction(req userDto.WalletTransactionRequest, a
 		return userDto.WalletTransactionResponse{}, errors.New("invalid PIN")
 	}
 	return resp, nil
+}
+
+func (usecase *userUC) DeleteUser(authHeader string) error {
+	id, err := middleware.GetIdFromToken(authHeader)
+	if err != nil {
+		return err
+	}
+	return usecase.userRepo.DeleteUser(id)
 }

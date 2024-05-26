@@ -19,7 +19,7 @@ func NewAuthRepository(db *sql.DB) auth.AuthRepository {
 }
 
 func (repo *authRepository) CekEmail(email string) (resp userDto.ForgetPinResp, err error) {
-	query := "SELECT email, username, pin, status FROM users WHERE email = $1"
+	query := "SELECT email, username, pin, status FROM users WHERE email = $1 AND deleted_at IS NULL"
 
 	err = repo.db.QueryRow(query, email).Scan(&resp.Email, &resp.Username, &resp.Unique, &resp.Status)
 	if err != nil {
@@ -33,7 +33,7 @@ func (repo *authRepository) CekEmail(email string) (resp userDto.ForgetPinResp, 
 }
 
 func (repo *authRepository) CekPhoneNumber(pnumber string) (resp userDto.ForgetPinResp, err error) {
-	query := "SELECT email, username, pin, status FROM users WHERE phone_number = $1"
+	query := "SELECT email, username, pin, status FROM users WHERE phone_number = $1 AND deleted_at IS NULL"
 
 	err = repo.db.QueryRow(query, pnumber).Scan(&resp.Email, &resp.Username, &resp.Unique, &resp.Status)
 	if err != nil {
@@ -71,7 +71,7 @@ func (repo *authRepository) InsertCode(code, email, pnumber string) (bool, error
 func (repo *authRepository) UserLogin(req userDto.UserLoginRequest) (resp userDto.UserLoginResponse, err error) {
 	var expiredCode time.Time
 	var count int
-	queryCount := "SELECT COUNT(*) FROM users WHERE email = $1"
+	queryCount := "SELECT COUNT(*) FROM users WHERE email = $1 AND deleted_at IS NULL"
 	if err := repo.db.QueryRow(queryCount, req.Email).Scan(&count); err != nil {
 		return resp, err
 	}
@@ -100,15 +100,6 @@ func (repo *authRepository) UserLogin(req userDto.UserLoginRequest) (resp userDt
 
 func (repo *authRepository) UserCreate(req userDto.UserCreateRequest) (resp userDto.UserCreateResponse, unique string, err error) {
 
-	checkEmailQuery := "SELECT COUNT(*) FROM users WHERE email = $1"
-	var emailCount int
-	if err := repo.db.QueryRow(checkEmailQuery, req.Email).Scan(&emailCount); err != nil {
-		return resp, "", errors.New("failed to check email")
-	}
-	if emailCount > 0 {
-		return resp, "", errors.New("email is already in use")
-	}
-
 	checkUsernameQuery := "SELECT COUNT(*) FROM users WHERE username = $1"
 	var usernameCount int
 	if err := repo.db.QueryRow(checkUsernameQuery, req.Username).Scan(&usernameCount); err != nil {
@@ -116,6 +107,15 @@ func (repo *authRepository) UserCreate(req userDto.UserCreateRequest) (resp user
 	}
 	if usernameCount > 0 {
 		return resp, "", errors.New("username is already in use")
+	}
+
+	checkEmailQuery := "SELECT COUNT(*) FROM users WHERE email = $1"
+	var emailCount int
+	if err := repo.db.QueryRow(checkEmailQuery, req.Email).Scan(&emailCount); err != nil {
+		return resp, "", errors.New("failed to check email")
+	}
+	if emailCount > 0 {
+		return resp, "", errors.New("email is already in use")
 	}
 
 	checkPhoneQuery := "SELECT COUNT(*) FROM users WHERE phone_number = $1"
