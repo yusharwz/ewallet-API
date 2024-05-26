@@ -50,7 +50,7 @@ type (
 		Email       string `json:"email" binding:"required,email"`
 		Pin         string `json:"pin" binding:"required,pin,min=6,max=6"`
 		PhoneNumber string `json:"phoneNumber" binding:"required,nomorHp,min=8,max=17"`
-		Roles       string
+		Roles       string `json:"roles"`
 	}
 
 	ActivatedAccountReq struct {
