@@ -13,6 +13,9 @@ type AdminRepository interface {
 	SavePaymentMethod(paymentMethodoe adminDto.PaymentMethod) error
 	SoftDeletePaymentMethod(paymentMethodID string) error
 	UpdatePaymentMethod(paymenmethodID adminDto.PaymentMethod) error
+	GetTransaction(page int, limit int) ([]adminDto.Transaction, int, error)
+	GetWalletTransaction(page int, limit int) ([]adminDto.WalletTransaction, int, error)
+	GetTopUpTransaction(page int, limit int) ([]adminDto.TopUpTransaction, int, error)
 }
 
 type AdminUsecase interface {
@@ -24,4 +27,7 @@ type AdminUsecase interface {
 	SavePaymentMethod(request adminDto.CreatePaymentMethod) error
 	SoftDeletePaymentMethod(paymentMethodID string) error
 	UpdatePaymentMethod(request adminDto.UpdatePaymentRequest) error
+	GetTransaction(page int, limit int) ([]adminDto.Transaction, int, error)
+	GetWalletTransaction(page int, limit int) ([]adminDto.WalletTransaction, int, error)
+	GetTopUpTransaction(page int, limit int) ([]adminDto.TopUpTransaction, int, error)
 }
