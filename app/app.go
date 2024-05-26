@@ -179,17 +179,3 @@ func RunService() {
 		log.Error().Msg(err.Error())
 	}
 }
-
-var AppLogger zerolog.Logger
-
-func InitLogger() {
-	logFile := &lumberjack.Logger{
-		Filename:   "logs/" + time.Now().Format("2006_01_02") + ".txt",
-		MaxSize:    10, // Maksimal ukuran file dalam MB
-		MaxBackups: 30, // Maksimal jumlah file backup
-		MaxAge:     7,  // Maksimal umur file dalam hari
-		Compress:   true, // Kompres file log lama
-	}
-
-	AppLogger = zerolog.New(logFile).With().Timestamp().Logger()
-}
