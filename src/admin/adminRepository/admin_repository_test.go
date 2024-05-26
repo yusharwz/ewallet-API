@@ -111,13 +111,13 @@ func TestUpdateUser(t *testing.T) {
 
 	t.Run("Successfully update user", func(t *testing.T) {
 		user := adminDto.User{
-			ID:           "123",
-			Fullname:     "John Doe",
-			Username:     "johndoe",
-			Email:        "johndoe@example.com",
-			PhoneNumber:  "123456789",
-			Pin:          "1234",
-			UpdatedAt:    time.Now(),
+			ID:          "123",
+			Fullname:    "John Doe",
+			Username:    "johndoe",
+			Email:       "johndoe@example.com",
+			PhoneNumber: "123456789",
+			Pin:         "1234",
+			UpdatedAt:   time.Now(),
 		}
 
 		mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM users WHERE id = \\$1 AND deleted_at IS NULL\\)").
@@ -191,7 +191,7 @@ func TestGetpaymentMethodByParams(t *testing.T) {
 	repo := &adminRepo{db}
 
 	t.Run("Successfully get payment methods by params", func(t *testing.T) {
-		params := adminDto.GetpaymentMethodParams{
+		params := adminDto.GetPaymentMethodParams{
 			ID: "123",
 		}
 
@@ -206,7 +206,7 @@ func TestGetpaymentMethodByParams(t *testing.T) {
 	})
 
 	t.Run("Payment method not found", func(t *testing.T) {
-		params := adminDto.GetpaymentMethodParams{
+		params := adminDto.GetPaymentMethodParams{
 			PaymentName: "Credit Card",
 		}
 
@@ -438,4 +438,3 @@ func TestUpdatePaymentMethod(t *testing.T) {
 		assert.Equal(t, sql.ErrNoRows, err)
 	})
 }
-

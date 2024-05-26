@@ -27,7 +27,7 @@ func (m *mockAdminUsecase) UpdateUser(user adminDto.UserUpdateRequest) error {
 	return nil
 }
 
-func (m *mockAdminUsecase) GetpaymentMethodByParams(params adminDto.GetpaymentMethodParams) ([]adminDto.PaymentMethod, error) {
+func (m *mockAdminUsecase) GetpaymentMethodByParams(params adminDto.GetPaymentMethodParams) ([]adminDto.PaymentMethod, error) {
 	return []adminDto.PaymentMethod{}, nil
 }
 
