@@ -34,6 +34,14 @@ CREATE TABLE payment_method (
     deleted_at TIMESTAMP WITHOUT TIME ZONE
 );
 
+CREATE TABLE merchant (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    merchant_name VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);
+
 CREATE TABLE transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
@@ -60,6 +68,13 @@ CREATE TABLE topup_transactions (
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE merchant_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    transaction_id UUID REFERENCES transactions(id),
+    merchant_id UUID REFERENCES merchant(id),
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_user_id ON transactions(user_id);
 CREATE INDEX idx_from_wallet_id ON wallet_transactions(from_wallet_id);
 CREATE INDEX idx_to_wallet_id ON wallet_transactions(to_wallet_id);
@@ -80,3 +95,18 @@ VALUES
     ('b25a226e-82ab-4d29-a68e-6957fb7e21a9', 'Alfa Group'),
     ('cf51fa64-1686-4fee-a4e1-ea13c939f99b', 'BCA'),
     ('f9569b06-a389-4685-b3cc-89b13a111214', 'Gopay/GopayLater');
+
+INSERT INTO merchant (id, merchant_name)
+VALUES
+    ('44efb0d8-09e9-458d-afd7-09e31087b638', 'Indomaret'),
+    ('9e4101df-f250-4ebc-9b85-771035ae818f', 'Alfamart'),
+    ('4dc644d8-be8c-4384-8119-d590b25e7f86', 'Starbucks'),
+    ('dd06862c-ca48-457a-80c4-f8cc228c2187', 'ChaTime'),
+    ('17ac6e7b-b0dc-4c97-b778-ca38c080df6d', 'PizzaHut'),
+    ('d451aba1-ef28-4ac0-8f75-b18477b5f932', 'McD'),
+    ('0435d42c-5aeb-4f89-8ee2-5d4a4d0a0bb3', 'KFC'),
+    ('af17aa97-4c1e-48ae-81cb-61839e9a5a4f', 'Ichiban Sushi'),
+    ('c3d6fd20-e372-4061-9039-d39692bf62ff', 'MatJeo'),
+    ('8efc051c-5908-4b81-a617-d1177f29df5e', 'Richeese'),
+    ('527a18c2-3e76-44cc-8fbd-25fe80b04729', 'Warung Pak Jajang'),
+    ('58af8cff-8db5-4c06-aba6-9cdcd9abc1fe', 'Warung Jati Diri');

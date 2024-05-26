@@ -3,6 +3,7 @@ module final-project-enigma
 go 1.22.1
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/cloudinary/cloudinary-go/v2 v2.7.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.7.2
@@ -28,7 +29,6 @@ require (
 )
 
 require (
-	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect

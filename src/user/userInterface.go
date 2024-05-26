@@ -14,6 +14,7 @@ type UserRepository interface {
 	PaymentGateway(payload userDto.MidtransSnapReq) (userDto.MidtransSnapResp, error)
 	InsertPaymentURL(transactionId, url string) error
 	CreateWalletTransaction(req userDto.WalletTransactionRequest) (userDto.WalletTransactionResponse, string, error)
+	CreateMerchantTransaction(req userDto.MerchantTransactionRequest) (string, error)
 	EditUserData(req userDto.UserUpdateReq) error
 	DeleteUser(id string) error
 }
@@ -26,6 +27,7 @@ type UserUsecase interface {
 	GetTransactionUC(authHeader string, params userDto.GetTransactionParams) ([]userDto.GetTransactionResponse, string, error)
 	TopUpTransaction(req userDto.TopUpTransactionRequest, authHeader string) (userDto.MidtransSnapResp, error)
 	WalletTransaction(req userDto.WalletTransactionRequest, authHeader string) (userDto.WalletTransactionResponse, error)
+	MerchantTransaction(req userDto.MerchantTransactionRequest, authHeader string) (resp userDto.MerchantTransactionResponse, err error)
 	EditDataUserUC(authHeader string, req userDto.UserUpdateReq) error
 	DeleteUser(authHeader string) error
 }

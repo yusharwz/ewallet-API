@@ -22,7 +22,7 @@ func (usecase *paymentUC) MidtransStatusReq(notification userDto.MidtransNotific
 			usecase.paymentRepo.UpdateTransactionStatus(notification.OrderID, "settlement")
 		}
 	case "settlement":
-		if err := usecase.paymentRepo.UpdateTransactionStatus(notification.OrderID, "succes"); err != nil {
+		if err := usecase.paymentRepo.UpdateTransactionStatus(notification.OrderID, "success"); err != nil {
 			return err
 		}
 		if err := usecase.paymentRepo.UpdateBalance(notification.OrderID, notification.GrossAmount); err != nil {

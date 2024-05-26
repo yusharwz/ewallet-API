@@ -171,30 +171,27 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 	conditionIndex := 2
 
 	addCondition := func(baseQuery *string, condition string, value interface{}) {
-		*baseQuery += fmt.Sprintf(" AND %s = $%d", condition, conditionIndex)
+		*baseQuery += fmt.Sprintf(" AND %s $%d", condition, conditionIndex)
 		args = append(args, value)
 		conditionIndex++
 	}
 
 	if params.TrxId != "" {
-		addCondition(&baseQuery1, "t.id", params.TrxId)
-		addCondition(&baseQuery2, "t.id", params.TrxId)
+		addCondition(&baseQuery1, "t.id =", params.TrxId)
+		addCondition(&baseQuery2, "t.id =", params.TrxId)
 	}
 	if params.TrxDateStart != "" {
-		baseQuery1 += fmt.Sprintf(" AND t.created_at >= $%d", conditionIndex)
-		baseQuery2 += fmt.Sprintf(" AND t.created_at >= $%d", conditionIndex)
-		args = append(args, params.TrxDateStart)
-		conditionIndex++
+		addCondition(&baseQuery1, "t.created_at >=", params.TrxDateStart)
+		addCondition(&baseQuery2, "t.created_at >=", params.TrxDateStart)
 	}
 	if params.TrxDateEnd != "" {
-		baseQuery1 += fmt.Sprintf(" AND t.created_at <= $%d", conditionIndex)
-		baseQuery2 += fmt.Sprintf(" AND t.created_at <= $%d", conditionIndex)
-		args = append(args, params.TrxDateEnd)
-		conditionIndex++
+		trxDateEnd := params.TrxDateEnd + " 23:59:59.999999"
+		addCondition(&baseQuery1, "t.created_at <=", trxDateEnd)
+		addCondition(&baseQuery2, "t.created_at <=", trxDateEnd)
 	}
 	if params.TrxStatus != "" {
-		addCondition(&baseQuery1, "t.status", params.TrxStatus)
-		addCondition(&baseQuery2, "t.status", params.TrxStatus)
+		addCondition(&baseQuery1, "t.status ILIKE", "%"+params.TrxStatus+"%")
+		addCondition(&baseQuery2, "t.status ILIKE", "%"+params.TrxStatus+"%")
 	}
 
 	finalQuery := `
@@ -251,6 +248,7 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 
 		transaction.Detail = userDto.TransactionDetail{}
 
+		// Query for payment method details
 		paymentMethodQuery := `
 			SELECT
 				pm.payment_name, tt.payment_url
@@ -274,6 +272,7 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 			}
 		}
 
+		// Query for wallet transaction details
 		walletTransactionQuery := `
 			SELECT
 				(SELECT u.username FROM users u JOIN wallets wf ON u.id = wf.user_id WHERE wf.id = wt.from_wallet_id) AS sender_name,
@@ -301,6 +300,26 @@ func (repo *userRepository) GetTransactionRepo(params userDto.GetTransactionPara
 		}
 		if recipientId.Valid {
 			transaction.Detail.RecipientId = recipientId.String
+		}
+
+		// Query for merchant transaction details
+		merchantTransactionQuery := `
+			SELECT
+				m.merchant_name
+			FROM
+				merchant_transactions mt
+			JOIN
+				merchant m ON mt.merchant_id = m.id
+			WHERE
+				mt.transaction_id = $1
+		`
+		var merchantName sql.NullString
+		err = repo.db.QueryRow(merchantTransactionQuery, transaction.TransactionId).Scan(&merchantName)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, 0, fmt.Errorf("failed to query merchant transaction: %w", err)
+		}
+		if merchantName.Valid {
+			transaction.Detail.MerchantName = merchantName.String
 		}
 
 		resp = append(resp, transaction)
@@ -354,7 +373,7 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 	err = tx.QueryRow(checkPaymentMethodQuery, req.PaymentMethodId).Scan(&validPaymentMethod)
 	if err != nil {
 		tx.Rollback()
-		return "", err
+		return "", errors.New("payment method not registered")
 	}
 
 	transactionQuery := `
@@ -549,6 +568,88 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	}
 
 	return userDto.WalletTransactionResponse{TransactionId: transactionID}, storedPin, nil
+}
+
+func (repo *userRepository) CreateMerchantTransaction(req userDto.MerchantTransactionRequest) (string, error) {
+	tx, err := repo.db.Begin()
+	if err != nil {
+		return "", err
+	}
+
+	var validMerchant bool
+	checkMerchantQuery := `
+        SELECT EXISTS (
+            SELECT 1
+            FROM merchant
+            WHERE id = $1
+        )
+    `
+	err = tx.QueryRow(checkMerchantQuery, req.MerchantId).Scan(&validMerchant)
+	if err != nil {
+		tx.Rollback()
+		return "", errors.New("payment method not registered")
+	}
+
+	if !validMerchant {
+		tx.Rollback()
+		return "", errors.New("invalid merchant")
+	}
+
+	var currentBalance float64
+	checkBalanceQuery := `
+        SELECT balance
+        FROM wallets
+        WHERE user_id = $1
+    `
+	err = tx.QueryRow(checkBalanceQuery, req.UserId).Scan(&currentBalance)
+	if err != nil {
+		tx.Rollback()
+		return "", err
+	}
+
+	if currentBalance < req.Amount {
+		tx.Rollback()
+		return "", errors.New("insufficient balance")
+	}
+
+	transactionQuery := `
+        INSERT INTO transactions (user_id, transaction_type, amount, description, created_at, status)
+        VALUES ($1, 'debit', $2, $3, $4, 'success')
+        RETURNING id
+    `
+	var transactionID string
+	err = tx.QueryRow(transactionQuery, req.UserId, req.Amount, req.Description, time.Now()).Scan(&transactionID)
+	if err != nil {
+		tx.Rollback()
+		return "", err
+	}
+
+	merchantTransactionQuery := `
+        INSERT INTO merchant_transactions (transaction_id, merchant_id, created_at)
+        VALUES ($1, $2, $3)
+    `
+	_, err = tx.Exec(merchantTransactionQuery, transactionID, req.MerchantId, time.Now())
+	if err != nil {
+		tx.Rollback()
+		return "", err
+	}
+
+	updateBalanceQuery := `
+        UPDATE wallets
+        SET balance = balance - $1
+        WHERE user_id = $2
+    `
+	_, err = tx.Exec(updateBalanceQuery, req.Amount, req.UserId)
+	if err != nil {
+		tx.Rollback()
+		return "", err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+
+	return transactionID, nil
 }
 
 func (repo *userRepository) DeleteUser(id string) error {

@@ -9,6 +9,7 @@ import (
 	"final-project-enigma/pkg/helper/sendEmail"
 	"final-project-enigma/pkg/helper/sendWhatappTwilio"
 	"final-project-enigma/src/auth"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -165,7 +166,9 @@ func (usecase *authUC) CreateReq(req userDto.UserCreateRequest) (resp userDto.Us
 	}
 
 	req.Pin = hashedPin
-	req.Roles = "USER"
+	if req.Roles == "" {
+		req.Roles = "USER"
+	}
 
 	resp, unique, err := usecase.authRepo.UserCreate(req)
 	if err != nil {

@@ -116,6 +116,8 @@ func (usecase *userUC) GetTransactionUC(authHeader string, params userDto.GetTra
 			transaction.TransactionType = "credit"
 		} else if transaction.Detail.PaymentMethod != "" {
 			transaction.TransactionType = "credit"
+		} else if transaction.Detail.MerchantName != "" {
+			transaction.TransactionType = "debit"
 		} else {
 			transaction.TransactionType = "debit"
 		}
@@ -271,4 +273,23 @@ func (usecase *userUC) DeleteUser(authHeader string) error {
 		return err
 	}
 	return usecase.userRepo.DeleteUser(id)
+}
+
+func (usecase *userUC) MerchantTransaction(req userDto.MerchantTransactionRequest, authHeader string) (resp userDto.MerchantTransactionResponse, err error) {
+	userId, err := middleware.GetIdFromToken(authHeader)
+	if err != nil {
+		return userDto.MerchantTransactionResponse{}, err
+	}
+
+	req.UserId = userId
+	req.Description = "Merchant-Payment"
+
+	transactionId, err := usecase.userRepo.CreateMerchantTransaction(req)
+	if err != nil {
+		return userDto.MerchantTransactionResponse{}, err
+	}
+
+	resp.TransactionId = transactionId
+
+	return resp, nil
 }
