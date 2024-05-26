@@ -8,6 +8,7 @@ import (
 
 	"fmt"
 	"strconv"
+	"github.com/rs/zerolog/log"
 )
 
 type adminRepo struct {
@@ -56,10 +57,12 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	if params.StartDate != "" && params.EndDate != "" {
 		startDate, err := time.Parse("2006-01-02", params.StartDate)
 		if err != nil {
+			log.Error().Msg("invalid start date format: %s"+ err.Error())
 			return nil, fmt.Errorf("invalid start date format: %s", err.Error())
 		}
 		endDate, err := time.Parse("2006-01-02", params.EndDate)
 		if err != nil {
+			log.Error().Msg("invalid start date format: %s"+ err.Error())
 			return nil, fmt.Errorf("invalid end date format: %s", err.Error())
 		}
 		query += " AND created_at BETWEEN $" + strconv.Itoa(len(args)+1) + " AND $" + strconv.Itoa(len(args)+2)
@@ -69,10 +72,12 @@ func (r *adminRepo) GetUsersByParams(params adminDto.GetUserParams) ([]adminDto.
 	if params.Page != "" && params.Limit != "" {
 		page, err := strconv.Atoi(params.Page)
 		if err != nil {
+			log.Error().Msg("invalid page parameter: %s"+ err.Error())
 			return nil, fmt.Errorf("invalid page parameter: %s", err.Error())
 		}
 		limit, err := strconv.Atoi(params.Limit)
 		if err != nil {
+			log.Error().Msg("invalid limit parameter: %s"+ err.Error())
 			return nil, fmt.Errorf("invalid limit parameter: %s", err.Error())
 		}
 		offset := (page - 1) * limit
@@ -141,36 +146,44 @@ func (r *adminRepo) UpdateUser(user adminDto.User) error {
 	userQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1 AND deleted_at IS NULL)"
 	err := r.db.QueryRow(userQuery, user.ID).Scan(&userExists)
 	if err != nil {
+		log.Error().Msg("failed to check user existence: %w" + err.Error())
 		return fmt.Errorf("failed to check user existence: %w", err)
 	}
 	if !userExists {
+		log.Error().Msg("user does not exist")
 		return errors.New("user does not exist")
 	}
 	var usernameExists bool
 	usernameQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 AND id <> $2 AND deleted_at IS NULL)"
 	err = r.db.QueryRow(usernameQuery, user.Username, user.ID).Scan(&usernameExists)
 	if err != nil {
+		log.Error().Msg("failed to check username existence: %w" + err.Error())
 		return fmt.Errorf("failed to check username existence: %w", err)
 	}
 	if usernameExists {
+		log.Error().Msg("username already exists for another user")
 		return errors.New("username already exists for another user")
 	}
 	var emailExists bool
 	emailQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id <> $2 AND deleted_at IS NULL)"
 	err = r.db.QueryRow(emailQuery, user.Email, user.ID).Scan(&emailExists)
 	if err != nil {
+		log.Error().Msg("failed to check email existence: %w" + err.Error())
 		return fmt.Errorf("failed to check email existence: %w", err)
 	}
 	if emailExists {
+		log.Error().Msg("email already exists for another user")
 		return errors.New("email already exists for another user")
 	}
 	var phoneNumberExists bool
 	phoneQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE phone_number = $1 AND id <> $2 AND deleted_at IS NULL)"
 	err = r.db.QueryRow(phoneQuery, user.PhoneNumber, user.ID).Scan(&phoneNumberExists)
 	if err != nil {
+		log.Error().Msg("failed to check phone number existencer: %w" + err.Error())
 		return fmt.Errorf("failed to check phone number existence: %w", err)
 	}
 	if phoneNumberExists {
+		log.Error().Msg("phone number already exists for another user")
 		return errors.New("phone number already exists for another user")
 	}
 	query := `
@@ -179,10 +192,12 @@ func (r *adminRepo) UpdateUser(user adminDto.User) error {
         WHERE id = $7 AND deleted_at IS NULL`
 	result, err := r.db.Exec(query, user.Fullname, user.Username, user.Email, user.PhoneNumber, user.Pin, time.Now(), user.ID)
 	if err != nil {
+		log.Error().Msg("failed to update user: %w" + err.Error())
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
+		log.Error().Msg("failed to get rows affected:%w" + err.Error())
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
@@ -267,6 +282,7 @@ func (r *adminRepo) SavePaymentMethod(paymentMethod adminDto.PaymentMethod) erro
 		return err
 	}
 	if exists {
+		log.Error().Msg("payment method name already exists")
 		return errors.New("payment method name already exists")
 	}
 
@@ -299,6 +315,7 @@ func (r *adminRepo) UpdatePaymentMethod(paymentMethod adminDto.PaymentMethod) er
 		return err
 	}
 	if exists {
+		log.Error().Msg("payment method name already exists")
 		return errors.New("payment method name already exists")
 	}
 	query := "UPDATE payment_method SET payment_name=$1, updated_at=$2 WHERE id=$3 AND deleted_at IS NULL"
@@ -366,10 +383,12 @@ func (r *adminRepo) GetWalletByParams(params adminDto.GetWalletParams) ([]adminD
 	if params.Page != "" && params.Limit != "" {
 		page, err := strconv.Atoi(params.Page)
 		if err != nil {
+			log.Error().Msg("invalid page parameter")
 			return nil, fmt.Errorf("invalid page parameter")
 		}
 		limit, err := strconv.Atoi(params.Limit)
 		if err != nil {
+			log.Error().Msg("invalid limt parameter")
 			return nil, fmt.Errorf("invalid limit parameter")
 		}
 		offset := (page - 1) * limit
