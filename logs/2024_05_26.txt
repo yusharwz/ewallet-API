@@ -1,0 +1,2 @@
+{"level":"error","time":"26-05-2024 14:16:03","caller":"D:/MY-FAMILY/AMIN/Enigma-Camp/Kelompok Final Project/fp_digital_wallet/src/auth/authRepository/authRepository.go:80","message":"email not registered"}
+{"level":"error","time":"26-05-2024 14:16:49","caller":"D:/MY-FAMILY/AMIN/Enigma-Camp/Kelompok Final Project/fp_digital_wallet/src/auth/authRepository/authRepository.go:111","message":"username is already in use"}

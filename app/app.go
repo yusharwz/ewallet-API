@@ -23,6 +23,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/rs/zerolog/pkgerrors"
+	"github.com/natefinch/lumberjack"
 )
 
 func InitEnv() (dto.ConfigData, error) {
@@ -140,6 +141,17 @@ func RunService() {
 	zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 
 	log.Logger = log.With().Caller().Logger()
+
+	// Konfigurasi lumberjack untuk menyimpan log ke dalam file
+    logFile := &lumberjack.Logger{
+        Filename:   "./logs/" + time.Now().Format("2006_01_02") + ".txt",
+        MaxSize:    10, // Maksimal ukuran file dalam MB
+        MaxBackups: 30, // Maksimal jumlah file backup
+        MaxAge:     7,  // Maksimal umur file dalam hari
+        Compress:   true, // Kompres file log lama
+    }
+
+    log.Logger = log.Output(logFile)
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterValidation("password", validation.ValidatePassword)

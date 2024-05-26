@@ -21,6 +21,13 @@ require (
 )
 
 require (
+	github.com/BurntSushi/toml v1.4.0 // indirect
+	github.com/natefinch/lumberjack v2.0.0+incompatible
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
+)
+
+require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
