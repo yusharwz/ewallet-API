@@ -110,3 +110,8 @@ VALUES
     ('8efc051c-5908-4b81-a617-d1177f29df5e', 'Richeese'),
     ('527a18c2-3e76-44cc-8fbd-25fe80b04729', 'Warung Pak Jajang'),
     ('58af8cff-8db5-4c06-aba6-9cdcd9abc1fe', 'Warung Jati Diri');
+
+INSERT INTO users (fullname, username, email, pin, phone_number, roles, status)
+VALUES
+    ('Second User', '2ndUser', 'icmarketindo@gmail.com', '999888', '085156273045', 'USER', 'active'),
+    ('Admin', 'adminaccount', 'pit.pemilwaikmub@gmail.com', '999888', '081358889430', 'ADMIN', 'active');
