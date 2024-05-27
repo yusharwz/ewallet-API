@@ -67,25 +67,8 @@ func (m *mockAdminRepo) UpdatePaymentMethod(paymentMethod adminDto.PaymentMethod
 	return nil
 }
 
-func (m *mockAdminRepo) GetTransaction(page int, limit int) ([]adminDto.Transaction, int, error) {
-	if page == -1 {
-		return nil, 0, errors.New("failed to get transactions")
-	}
-	return []adminDto.Transaction{}, 0, nil
-}
-
-func (m *mockAdminRepo) GetTopUpTransaction(page int, limit int) ([]adminDto.TopUpTransaction, int, error) {
-	if page == -1 {
-		return nil, 0, errors.New("failed to get top-up transactions")
-	}
-	return []adminDto.TopUpTransaction{}, 0, nil
-}
-
-func (m *mockAdminRepo) GetWalletTransaction(page int, limit int) ([]adminDto.WalletTransaction, int, error) {
-	if page == -1 {
-		return nil, 0, errors.New("failed to get wallet transactions")
-	}
-	return []adminDto.WalletTransaction{}, 0, nil
+func (m *mockAdminRepo) GetTransactionRepo(params adminDto.GetTransactionParams) ([]adminDto.GetTransactionResponse, int, error) {
+	return []adminDto.GetTransactionResponse{}, 0, nil
 }
 
 func TestSoftDeleteUser_Success(t *testing.T) {

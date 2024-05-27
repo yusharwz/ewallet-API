@@ -71,25 +71,9 @@ func (m *mockAdminUsecase) GetWalletByParams(params adminDto.GetWalletParams) ([
 	return []adminDto.Wallet{}, nil
 }
 
-func (m *mockAdminUsecase) GetTransaction(page, limit int) ([]adminDto.Transaction, int, error) {
-	if page == -1 {
-		return nil, 0, errors.New("failed to get transactions")
-	}
-	return []adminDto.Transaction{}, 0, nil
-}
+func (m *mockAdminUsecase) GetTransactionUC(params adminDto.GetTransactionParams) ([]adminDto.GetTransactionResponse, string, error) {
 
-func (m *mockAdminUsecase) GetWalletTransaction(page, limit int) ([]adminDto.WalletTransaction, int, error) {
-	if page == -1 {
-		return nil, 0, errors.New("failed to get wallet transactions")
-	}
-	return []adminDto.WalletTransaction{}, 0, nil
-}
-
-func (m *mockAdminUsecase) GetTopUpTransaction(page, limit int) ([]adminDto.TopUpTransaction, int, error) {
-	if page == -1 {
-		return nil, 0, errors.New("failed to get top-up transactions")
-	}
-	return []adminDto.TopUpTransaction{}, 0, nil
+	return []adminDto.GetTransactionResponse{}, "", nil
 }
 
 func TestSavePaymentMethod_Success(t *testing.T) {

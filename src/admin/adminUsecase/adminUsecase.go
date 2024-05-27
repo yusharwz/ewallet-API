@@ -4,7 +4,7 @@ import (
 	"final-project-enigma/model/dto/adminDto"
 	"final-project-enigma/pkg/helper/hashingPassword"
 	"final-project-enigma/src/admin"
-	"log"
+	"strconv"
 )
 
 type adminUC struct {
@@ -98,30 +98,13 @@ func (u *adminUC) UpdatePaymentMethod(request adminDto.UpdatePaymentRequest) err
 	return nil
 }
 
-func (u *adminUC) GetTransaction(page int, limit int) ([]adminDto.Transaction, int, error) {
-	results, total, err := u.adminRepo.GetTransaction(page, limit)
-	if err != nil {
-		// Log kesalahan secara rinci
-		log.Printf("Failed to get transactions from repository: %v", err)
-		return nil, 0, err
-	}
-	return results, total, nil
-}
+func (u *adminUC) GetTransactionUC(params adminDto.GetTransactionParams) ([]adminDto.GetTransactionResponse, string, error) {
 
-func (u *adminUC) GetTopUpTransaction(page int, limit int) ([]adminDto.TopUpTransaction, int, error) {
-	results, total, err := u.adminRepo.GetTopUpTransaction(page, limit)
+	resp, totalData, err := u.adminRepo.GetTransactionRepo(params)
 	if err != nil {
-		return nil, 0, err
+		return nil, "", err
 	}
 
-	return results, total, nil
-}
-
-func (u *adminUC) GetWalletTransaction(page int, limit int) ([]adminDto.WalletTransaction, int, error) {
-	results, total, err := u.adminRepo.GetWalletTransaction(page, limit)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return results, total, nil
+	totalDataStr := strconv.Itoa(totalData)
+	return resp, totalDataStr, nil
 }

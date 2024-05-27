@@ -499,17 +499,11 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 	err = tx.QueryRow(balanceQuery, req.FromWalletId).Scan(&senderBalance)
 	if err != nil {
 		tx.Rollback()
-		log.Error().Msg("disini: %v" + err.Error())
-		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("disini: %v", err)
-	}
-
-	amount, err := strconv.ParseFloat(req.Amount, 64)
-	if err != nil {
 		log.Error().Msg("invalid amount: %v" + err.Error())
 		return userDto.WalletTransactionResponse{}, "", fmt.Errorf("invalid amount: %v", err)
 	}
 
-	if senderBalance < amount {
+	if senderBalance < req.Amount {
 		tx.Rollback()
 		log.Error().Msg("insufficient balance")
 		return userDto.WalletTransactionResponse{}, "", errors.New("insufficient balance")
@@ -553,7 +547,7 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 		WHERE id = $3 AND balance >= $1
 	`
 
-	res, err := tx.Exec(updateSenderBalanceQuery, amount, currentTime, req.FromWalletId)
+	res, err := tx.Exec(updateSenderBalanceQuery, req.Amount, currentTime, req.FromWalletId)
 	if err != nil {
 		tx.Rollback()
 		return userDto.WalletTransactionResponse{}, "", err
@@ -575,7 +569,7 @@ func (repo *userRepository) CreateWalletTransaction(req userDto.WalletTransactio
 		SET balance = balance + $1, updated_at = $2
 		WHERE id = $3
 	`
-	_, err = tx.Exec(updateRecipientBalanceQuery, amount, currentTime, req.ToWalletId)
+	_, err = tx.Exec(updateRecipientBalanceQuery, req.Amount, currentTime, req.ToWalletId)
 	if err != nil {
 		tx.Rollback()
 		return userDto.WalletTransactionResponse{}, "", err

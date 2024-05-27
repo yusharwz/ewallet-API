@@ -9,8 +9,8 @@ import (
 
 type (
 	jsonResponse struct {
-		Code    string      `json:"responCode"`
-		Message string      `json:"responMessage,omitempty"`
+		Code    string      `json:"responseCode"`
+		Message string      `json:"responseMessage,omitempty"`
 		Data    interface{} `json:"data,omitempty"`
 	}
 
@@ -22,8 +22,8 @@ type (
 	}
 
 	jsonErrorResponse struct {
-		Code    string `json:"responCode"`
-		Message string `json:"responMessage"`
+		Code    string `json:"responseCode"`
+		Message string `json:"responseMessage"`
 		Error   string `json:"error,omitempty"`
 	}
 
@@ -33,8 +33,8 @@ type (
 	}
 
 	jsonBadRequestResponse struct {
-		Code             string            `json:"responCode"`
-		Message          string            `json:"responMessage"`
+		Code             string            `json:"responseCode"`
+		Message          string            `json:"responseMessage"`
 		ErrorDescription []ValidationField `json:"error_description,omitempty"`
 	}
 

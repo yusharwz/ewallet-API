@@ -35,10 +35,10 @@ func (u *paymentDelivery) midtransStatusRequest(ctx *gin.Context) {
 		json.NewResponseError(ctx, err.Error(), "01", "01")
 		return
 	}
-	json.NewResponSucces(ctx, nil, "create transaction succes", "01", "01")
+	json.NewResponSucces(ctx, nil, "create transaction success", "01", "01")
 }
 
 func (u *paymentDelivery) midtransStatusRequestGet(ctx *gin.Context) {
 
-	json.NewResponSucces(ctx, "PaymentSucces", "", "01", "01")
+	json.NewResponSucces(ctx, "Payment success", "", "01", "01")
 }

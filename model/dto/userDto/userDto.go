@@ -157,13 +157,13 @@ type (
 	}
 
 	WalletTransactionRequest struct {
-		UserId               string `json:"userId"`
-		FromWalletId         string `json:"fromWalletId"`
-		ToWalletId           string `json:"toWalletId"`
-		RecipientPhoneNumber string `json:"recipientPhoneNumber" binding:"required"`
-		Amount               string `json:"amount" binding:"required,min=5"`
-		PIN                  string `json:"pin" binding:"required,pin"`
-		Description          string `json:"description"`
+		UserId               string  `json:"userId"`
+		FromWalletId         string  `json:"fromWalletId"`
+		ToWalletId           string  `json:"toWalletId"`
+		RecipientPhoneNumber string  `json:"recipientPhoneNumber" binding:"required"`
+		Amount               float64 `json:"amount" binding:"required,min=5"`
+		PIN                  string  `json:"pin" binding:"required,pin"`
+		Description          string  `json:"description"`
 	}
 
 	WalletTransactionResponse struct {

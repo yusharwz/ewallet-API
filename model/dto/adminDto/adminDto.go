@@ -99,14 +99,6 @@ type (
 		Created_at      time.Time `json:"created_at"`
 	}
 
-	TransactionDetail struct {
-		Id                  string    `json:"id"`
-		TransactionId       string    `json:"transaction_id"`
-		WalletTransactionId string    `json:"wallet_transaction_id"`
-		TopUpTransactionId  string    `json:"topup_transaction_id"`
-		Created_at          time.Time `json:"created_at"`
-	}
-
 	Transaction struct {
 		Id                string              `json:"id"`
 		UserId            string              `json:"user_id"`
@@ -143,35 +135,40 @@ type (
 		CreatedAt   string `json:"created_at"`
 	}
 
-	WalletResponse struct {
-		ID        string  `json:"id"`
-		UserID    string  `json:"user_id"`
-		Fullname  string  `json:"fullname"`
-		Username  string  `json:"username"`
-		Balance   float64 `json:"balance"`
-		CreatedAt string  `json:"created_at"`
+	GetTransactionParams struct {
+		UserId          string
+		RecipientUserId string
+		TrxId           string
+		TrxType         string
+		TrxDateStart    string
+		TrxDateEnd      string
+		TrxStatus       string
+		Page            string
+		Limit           string
 	}
 
-	TransactionResponse struct {
-		ID        string  `json:"id"`
-		UserID    string  `json:"user_id"`
-		Amount    float64 `json:"amount"`
-		Type      string  `json:"type"`
-		CreatedAt string  `json:"created_at"`
+	GetTransactionResponse struct {
+		TransactionId   string            `json:"transactionId,omitempty"`
+		TransactionType string            `json:"transactionType,omitempty"`
+		UserId          string            `json:"userId,omitempty"`
+		UserName        string            `json:"username,omitempty"`
+		Amount          string            `json:"amount,omitempty"`
+		Description     string            `json:"description"`
+		TransactionDate string            `json:"transactionDate"`
+		Status          string            `json:"status"`
+		TotalDataCount  string            `json:"-"`
+		Detail          TransactionDetail `json:"detail"`
 	}
 
-	WalletTransactionResponse struct {
-		ID        string  `json:"id"`
-		WalletID  string  `json:"wallet_id"`
-		Amount    float64 `json:"amount"`
-		Type      string  `json:"type"`
-		CreatedAt string  `json:"created_at"`
-	}
-
-	TopUpTransactionResponse struct {
-		ID        string  `json:"id"`
-		UserID    string  `json:"user_id"`
-		Amount    float64 `json:"amount"`
-		CreatedAt string  `json:"created_at"`
+	TransactionDetail struct {
+		SenderName    string `json:"senderName,omitempty"`
+		RecipientName string `json:"recipientName,omitempty"`
+		SenderId      string `json:"-"`
+		RecipientId   string `json:"-"`
+		PaymentMethod string `json:"paymentMethod,omitempty"`
+		PaymentURL    string `json:"paymentURL,omitempty"`
+		FromWalletId  string `json:"fromWalletId,omitempty"`
+		MerchantName  string `json:"merchantName,omitempty"`
+		ToWalletId    string `json:"toWalletId,omitempty"`
 	}
 )

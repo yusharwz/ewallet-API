@@ -3,6 +3,7 @@ package adminDelivery
 import (
 	"final-project-enigma/model/dto/adminDto"
 	"final-project-enigma/model/dto/json"
+	"final-project-enigma/pkg/middleware"
 	"final-project-enigma/pkg/validation"
 	"final-project-enigma/src/admin"
 	"strconv"
@@ -19,18 +20,16 @@ func NewAdminDelivery(router *gin.RouterGroup, adminUsecase admin.AdminUsecase) 
 
 	adminGroup := router.Group("/admin")
 	{
-		adminGroup.GET("/users", handler.GetUsersByParams)
-		adminGroup.DELETE("/user/:id", handler.SoftDeleteUser)
-		adminGroup.PUT("/user/:id", handler.UpdateUser)
-		adminGroup.GET("/paymentMethod", handler.GetpaymentMethodByParams)
-		adminGroup.POST("/paymentMethod", handler.SavePaymentMethod)
-		adminGroup.PUT("/paymentMethod/:id", handler.UpdatePaymentMethod)
-		adminGroup.DELETE("/paymentMethod/:id", handler.SoftDeletePaymentMethod)
+		adminGroup.GET("/users", middleware.JwtAuthWithRoles("ADMIN"), handler.GetUsersByParams)
+		adminGroup.DELETE("/user/:id", middleware.JwtAuthWithRoles("ADMIN"), handler.SoftDeleteUser)
+		adminGroup.PUT("/user/:id", middleware.JwtAuthWithRoles("ADMIN"), handler.UpdateUser)
+		adminGroup.GET("/paymentMethod", middleware.JwtAuthWithRoles("ADMIN"), handler.GetpaymentMethodByParams)
+		adminGroup.POST("/paymentMethod", middleware.JwtAuthWithRoles("ADMIN"), handler.SavePaymentMethod)
+		adminGroup.PUT("/paymentMethod/:id", middleware.JwtAuthWithRoles("ADMIN"), handler.UpdatePaymentMethod)
+		adminGroup.DELETE("/paymentMethod/:id", middleware.JwtAuthWithRoles("ADMIN"), handler.SoftDeletePaymentMethod)
 		adminGroup.GET("/wallet", handler.GetWalletByParams)
 		//transaction
-		adminGroup.GET("/transaction", handler.GetTransaction)
-		adminGroup.GET("/wallet-transaction", handler.GetWalletTransaction)
-		adminGroup.GET("/topup-transaction", handler.GetTopUpTransaction)
+		adminGroup.GET("/transaction", middleware.JwtAuthWithRoles("ADMIN"), handler.GetTransaction)
 	}
 }
 
@@ -191,142 +190,21 @@ func (d *adminDelivery) GetWalletByParams(c *gin.Context) {
 }
 
 func (d *adminDelivery) GetTransaction(ctx *gin.Context) {
-	var req adminDto.Transaction
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		validationError := validation.GetValidationError(err)
-		if len(validationError) > 0 {
-			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
-			return
-		}
-	}
+	var params adminDto.GetTransactionParams
+	params.UserId = ctx.Query("userId")
+	params.TrxId = ctx.Query("trxId")
+	params.TrxType = ctx.Query("trxType")
+	params.TrxDateStart = ctx.Query("trxDateStart")
+	params.TrxDateEnd = ctx.Query("trxDateEnd")
+	params.TrxStatus = ctx.Query("paymentStatus")
+	params.Page = ctx.Query("page")
+	params.Limit = ctx.Query("size")
 
-	page, err := strconv.Atoi(ctx.Query("page"))
-	if err != nil || page <= 0 {
-		page = 1
-		json.NewResponseError(ctx, "data not found", "01", "02")
+	resp, totalData, err := d.adminUsecase.GetTransactionUC(params)
+	if err != nil {
+		json.NewResponseForbidden(ctx, "No transaction record", "02", "02")
 		return
 	}
 
-	limit, err := strconv.Atoi(ctx.Query("limit"))
-	if err != nil {
-		limit = 10
-	}
-
-	transactions, total, err := d.adminUsecase.GetTransaction(page, limit)
-	if err != nil {
-		json.NewResponseError(ctx, err.Error(), "01", "02")
-		return
-	}
-
-	nextPage := page
-	if len(transactions) == limit {
-		nextPage++
-	}
-
-	paging := gin.H{
-		"page":       page,
-		"total data": total,
-		"next page":  nextPage,
-	}
-
-	responseData := gin.H{
-		"transactions": transactions,
-		"paging":       paging,
-	}
-
-	json.NewResponSucces(ctx, responseData, "success", "01", "01")
-}
-
-func (d *adminDelivery) GetWalletTransaction(ctx *gin.Context) {
-	var req adminDto.WalletTransaction
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		validationError := validation.GetValidationError(err)
-		if len(validationError) > 0 {
-			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
-			return
-		}
-	}
-
-	page, err := strconv.Atoi(ctx.Query("page"))
-	if err != nil || page <= 0 {
-		page = 1
-		json.NewResponseError(ctx, "data not found", "01", "02")
-		return
-	}
-
-	limit, err := strconv.Atoi(ctx.Query("limit"))
-	if err != nil {
-		limit = 10
-	}
-
-	transactions, total, err := d.adminUsecase.GetWalletTransaction(page, limit)
-	if err != nil {
-		json.NewResponseError(ctx, err.Error(), "01", "02")
-		return
-	}
-
-	nextPage := page
-	if len(transactions) == limit {
-		nextPage++
-	}
-
-	paging := gin.H{
-		"page":       page,
-		"total data": total,
-		"next page":  nextPage,
-	}
-
-	ResponseData := gin.H{
-		"transactions": transactions,
-		"paging":       paging,
-	}
-
-	json.NewResponSucces(ctx, ResponseData, "success", "01", "01")
-}
-
-func (d *adminDelivery) GetTopUpTransaction(ctx *gin.Context) {
-	var req adminDto.TopUpTransaction
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		validationError := validation.GetValidationError(err)
-		if len(validationError) > 0 {
-			json.NewResponBadRequest(ctx, validationError, "bad request", "01", "02")
-			return
-		}
-	}
-
-	page, err := strconv.Atoi(ctx.Query("page"))
-	if err != nil || page <= 0 {
-		page = 1
-		// json.NewResponseError(ctx, "data not found", "01", "01")
-		// return
-	}
-
-	limit, err := strconv.Atoi(ctx.Query("limit"))
-	if err != nil {
-		limit = 10
-	}
-
-	transactions, total, err := d.adminUsecase.GetTopUpTransaction(page, limit)
-	if err != nil {
-		json.NewResponseError(ctx, "data not found", "01", "02")
-		return
-	}
-
-	nextPage := page
-	if len(transactions) == limit {
-		nextPage++
-	}
-
-	paging := gin.H{
-		"page":       nextPage,
-		"total data": total,
-		"next page":  nextPage,
-	}
-
-	ResponseData := gin.H{
-		"transactions": transactions,
-		"paging":       paging,
-	}
-
-	json.NewResponSucces(ctx, ResponseData, "success", "01", "01")
+	json.NewResponSuccesPaging(ctx, resp, "Succes get transaction history", "01", "01", params.Page, totalData)
 }
