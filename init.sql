@@ -111,7 +111,13 @@ VALUES
     ('527a18c2-3e76-44cc-8fbd-25fe80b04729', 'Warung Pak Jajang'),
     ('58af8cff-8db5-4c06-aba6-9cdcd9abc1fe', 'Warung Jati Diri');
 
-INSERT INTO users (fullname, username, email, pin, phone_number, roles, status)
+INSERT INTO users (id, fullname, username, email, pin, phone_number, roles, status)
 VALUES
-    ('Second User', '2ndUser', 'icmarketindo@gmail.com', '999888', '085156273045', 'USER', 'active'),
-    ('Admin', 'adminaccount', 'pit.pemilwaikmub@gmail.com', '999888', '081358889430', 'ADMIN', 'active');
+    ('913a9dcf-28cd-4d2a-991b-60bdb3e57687', 'Second User', '2ndUser', 'icmarketindo@gmail.com', '$2a$10$G2d9vUj3qKXLsHvv.F3BB.0BMC4.vG6N.4W1uqLe0oGb3vESLqodO', '+6285156273045', 'USER', 'active'),
+
+    ('113cc083-fea8-4fe7-97ed-739464ebe15b', 'Admin', 'adminaccount', 'pit.pemilwaikmub@gmail.com', '$2a$10$G2d9vUj3qKXLsHvv.F3BB.0BMC4.vG6N.4W1uqLe0oGb3vESLqodO', '+6281358889430', 'ADMIN', 'active');
+
+INSERT INTO wallets (user_id)
+VALUES
+    ('913a9dcf-28cd-4d2a-991b-60bdb3e57687'),
+    ('113cc083-fea8-4fe7-97ed-739464ebe15b');
