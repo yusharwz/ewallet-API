@@ -1,0 +1,3 @@
+{"level":"error","time":"19-06-2024 21:40:27","caller":"C:/Users/YUSHAR/Documents/Golang/Golang-Fundamental/Incubation Enigma Camp/final-project-enigma/src/auth/authRepository/authRepository.go:44","message":"phone number not registered"}
+{"level":"error","time":"19-06-2024 21:44:20","caller":"C:/Users/YUSHAR/Documents/Golang/Golang-Fundamental/Incubation Enigma Camp/final-project-enigma/src/auth/authRepository/authRepository.go:131","message":"email is already in use"}
+{"level":"error","time":"19-06-2024 21:47:36","caller":"C:/Users/YUSHAR/Documents/Golang/Golang-Fundamental/Incubation Enigma Camp/final-project-enigma/src/auth/authUsecase/authUsecase.go:48","message":"account has not been activated, please check the email inbox for the activation link"}

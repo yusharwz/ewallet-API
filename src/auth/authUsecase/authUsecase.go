@@ -6,6 +6,7 @@ import (
 	"final-project-enigma/pkg/helper/generateCode"
 	"final-project-enigma/pkg/helper/getJwtToken"
 	"final-project-enigma/pkg/helper/hashingPassword"
+	"final-project-enigma/pkg/helper/phoneNumberFormat"
 	"final-project-enigma/pkg/helper/sendEmail"
 	"final-project-enigma/pkg/helper/sendWhatappTwilio"
 	"final-project-enigma/src/auth"
@@ -78,6 +79,10 @@ func (usecase *authUC) LoginCodeReqEmail(email string) error {
 }
 
 func (usecase *authUC) LoginCodeReqSMS(pnumber string) error {
+
+	phoneNumberFormatted := phoneNumberFormat.ConvertToInternationalFormat(pnumber)
+	pnumber = phoneNumberFormatted
+
 	resp, err := usecase.authRepo.CekPhoneNumber(pnumber)
 	if err != nil {
 		return err
@@ -164,6 +169,9 @@ func (usecase *authUC) CreateReq(req userDto.UserCreateRequest) (resp userDto.Us
 	if err != nil {
 		return resp, err
 	}
+
+	phoneNumberFormatted := phoneNumberFormat.ConvertToInternationalFormat(req.PhoneNumber)
+	req.PhoneNumber = phoneNumberFormatted
 
 	req.Pin = hashedPin
 	if req.Roles == "" {

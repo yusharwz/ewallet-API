@@ -417,7 +417,7 @@ func (repo *userRepository) CreateTopUpTransaction(req userDto.TopUpTransactionR
 
 func (repo *userRepository) PaymentGateway(payload userDto.MidtransSnapReq) (userDto.MidtransSnapResp, error) {
 	url := "https://app.sandbox.midtrans.com/snap/v1/transactions"
-	serverKey := os.Getenv("SERVER_KEY")
+	serverKey := os.Getenv("MIDTRANS_SERVER_KEY")
 	encodeKey := base64.StdEncoding.EncodeToString([]byte(serverKey))
 
 	resp, err := repo.client.R().SetHeader("Authorization", "Basic "+encodeKey).SetBody(payload).Post(url)
